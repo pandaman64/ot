@@ -39,7 +39,7 @@ impl Operation {
                     return;
                 }
                 self.operations.push(Retain(len));
-            },
+            }
             Insert(s) => {
                 self.target_len += s.len();
                 if let Some(&mut Insert(ref mut ss)) = self.operations.last_mut() {
@@ -47,7 +47,7 @@ impl Operation {
                     return;
                 }
                 self.operations.push(Insert(s));
-            },
+            }
             Delete(len) => {
                 self.source_len += len;
                 if let Some(&mut Delete(ref mut l)) = self.operations.last_mut() {
@@ -55,7 +55,7 @@ impl Operation {
                     return;
                 }
                 self.operations.push(Delete(len));
-            },
+            }
         }
     }
 
@@ -89,7 +89,7 @@ pub fn apply(mut original: &str, operation: &Operation) -> String {
             Retain(len) => {
                 ret.push_str(&original[0..len]);
                 original = &original[len..];
-            },
+            }
             Insert(ref s) => ret.push_str(s),
             Delete(len) => {
                 original = &original[len..];
@@ -149,7 +149,9 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
                     ret.retain(len_first);
                     head_first = first.next();
                     head_second = second.next();
-                } else /* if len_first > len_second */ {
+                } else
+                /* if len_first > len_second */
+                {
                     ret.retain(len_second);
                     head_first = Some(Retain(len_first - len_second));
                     head_second = second.next();
@@ -167,7 +169,9 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
                     ret.delete(len_first);
                     head_first = first.next();
                     head_second = second.next();
-                } else /* if len_first > len_second */ {
+                } else
+                /* if len_first > len_second */
+                {
                     ret.delete(len_second);
                     head_first = Some(Retain(len_first - len_second));
                     head_second = second.next();
@@ -181,12 +185,14 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
             if let Some(Delete(len)) = head_second {
                 if let Some(Insert(mut s)) = head_first {
                     if s.len() < len {
-                        head_first = first.next();    
+                        head_first = first.next();
                         head_second = Some(Delete(len - s.len()));
                     } else if s.len() == len {
                         head_first = first.next();
                         head_second = second.next();
-                    } else /* if s.len() > len */ {
+                    } else
+                    /* if s.len() > len */
+                    {
                         head_first = Some(Insert(s.split_off(len)));
                         head_second = second.next();
                     }
@@ -205,7 +211,9 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
                         head_first = first.next();
                         head_second = second.next();
                         ret.insert(s);
-                    } else /* if s.len() > len */ {
+                    } else
+                    /* if s.len() > len */
+                    {
                         let latter = s.split_off(len);
                         head_first = Some(Insert(latter));
                         head_second = second.next();
@@ -218,7 +226,10 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
 
         // because each branch ended with continue,
         // reaching here means we have missing case
-        panic!("missing case! head_first = {:?}, head_second = {:?}", head_first, head_second);
+        panic!(
+            "missing case! head_first = {:?}, head_second = {:?}",
+            head_first, head_second
+        );
     }
 }
 
@@ -285,7 +296,9 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     len = left_len;
                     head_left = left.next();
                     head_right = right.next();
-                } else /* left_len > right_len */ {
+                } else
+                /* left_len > right_len */
+                {
                     len = right_len;
                     head_left = Some(Retain(left_len - right_len));
                     head_right = right.next();
@@ -305,7 +318,9 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     len = left_len;
                     head_left = left.next();
                     head_right = right.next();
-                } else /* left_len > right_len */ {
+                } else
+                /* left_len > right_len */
+                {
                     len = right_len;
                     head_left = Some(Retain(left_len - right_len));
                     head_right = right.next();
@@ -326,7 +341,9 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     len = left_len;
                     head_left = left.next();
                     head_right = right.next();
-                } else /* left_len > right_len */ {
+                } else
+                /* left_len > right_len */
+                {
                     len = right_len;
                     head_left = Some(Delete(left_len - right_len));
                     head_right = right.next();
@@ -342,7 +359,9 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                 } else if left_len == right_len {
                     head_left = left.next();
                     head_right = right.next();
-                } else /* left_len > right_len */ {
+                } else
+                /* left_len > right_len */
+                {
                     head_left = Some(Delete(left_len - right_len));
                     head_right = right.next();
                 }
@@ -352,7 +371,10 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
 
         // because each branch ended with continue,
         // reaching here means we have missing case
-        panic!("missing case! head_left = {:?}, head_right = {:?}", head_left, head_right);
+        panic!(
+            "missing case! head_left = {:?}, head_right = {:?}",
+            head_left, head_right
+        );
     }
 }
 
@@ -392,9 +414,18 @@ fn test_compose() {
         op
     };
 
-    assert_eq!(apply(&apply(original, &first), &second), apply(original, &compose(first.clone(), second.clone())));
-    assert_eq!(apply(&apply(original, &first), &second), "さようなら! 社会");
-    assert_eq!(apply(original, &compose(first, second)), "さようなら! 社会");
+    assert_eq!(
+        apply(&apply(original, &first), &second),
+        apply(original, &compose(first.clone(), second.clone()))
+    );
+    assert_eq!(
+        apply(&apply(original, &first), &second),
+        "さようなら! 社会"
+    );
+    assert_eq!(
+        apply(original, &compose(first, second)),
+        "さようなら! 社会"
+    );
 }
 
 #[test]
@@ -421,8 +452,10 @@ fn test_transform() {
     let composed_left = compose(left, right_);
     let composed_right = compose(right, left_);
 
-    assert_eq!(apply(original, &composed_left), apply(original, &composed_right));
+    assert_eq!(
+        apply(original, &composed_left),
+        apply(original, &composed_right)
+    );
     assert_eq!(apply(original, &composed_left), "!さようなら 社会");
     assert_eq!(apply(original, &composed_right), "!さようなら 社会");
 }
-
