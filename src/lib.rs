@@ -222,6 +222,13 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
     }
 }
 
+// transforms two operations so that composed operations will converge
+// let (left', right') = transform(left, right), these satisfies the condition
+// apply(s, compose(left, right')) == apply(s, compose(right, left'))
+pub fn transform(left: &Operation, right: &Operation) -> (Operation, Operation) {
+    unimplemented!()
+}
+
 #[test]
 fn test_apply() {
     let original = "こんにちは 世界";
@@ -260,5 +267,30 @@ fn test_compose() {
 
     assert_eq!(apply(&apply(original, &first), &second), "さようなら! 社会");
     assert_eq!(apply(original, &compose(first, second)), "さようなら! 社会");
+}
+
+#[test]
+fn test_transform() {
+    let original = "こんにちは 世界";
+    let left = {
+        let mut op = Operation::new();
+        op.retain("こんにちは".len())
+            .insert("!".into())
+            .retain(" ".len())
+            .delete("世界".len())
+            .insert("社会".into());
+        op
+    };
+    let right = {
+        let mut op = Operation::new();
+        op.delete("こんにちは".len())
+            .insert("さようなら".into())
+            .retain(" 世界".len());
+        op
+    };
+
+    let (left_, right_) = transform(&left, &right);
+
+    assert_eq!(apply(original, &compose(left, right_)), apply(original, &compose(right, left_)));
 }
 
