@@ -260,8 +260,6 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
     loop {
         use PrimitiveOperation::*;
 
-        println!("head_left = {:?}, head_right = {:?}", head_left, head_right);
-
         if head_left.is_none() && head_right.is_none() {
             break (ret_left, ret_right);
         }
@@ -283,15 +281,11 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
         }
 
         if head_left.is_none() {
-            panic!("reaching here may be a bug: left is too short");
-            ret_right.add(std::mem::replace(&mut head_right, right.next()).unwrap());
-            continue;
+            panic!("reaching here is a bug: left is too short");
         }
 
         if head_right.is_none() {
-            panic!("reaching here may be a bug: right is too short");
-            ret_left.add(std::mem::replace(&mut head_left, left.next()).unwrap());
-            continue;
+            panic!("reaching here is a bug: right is too short");
         }
 
         if let Some(Retain(left_len)) = head_left {

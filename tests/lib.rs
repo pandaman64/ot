@@ -90,11 +90,9 @@ fn random_string<R: rand::Rng>(rng: &mut R, len: usize) -> String {
 }
 
 fn random_operation<R: rand::Rng>(rng: &mut R, original: &str) -> Operation {
-    use rand::Rng;
     use rand::distributions::{Range, Sample};
 
     let mut op_type = Range::new(0, 3);
-    let mut op_len = Range::new(0, 10);
 
     let mut ret = Operation::new();
 
@@ -153,7 +151,6 @@ fn test_random_operation() {
 #[test]
 fn fuzz_test_compose() {
     use rand::Rng;
-    use rand::distributions::{Range, Sample};
 
     let mut rng = rand::thread_rng();
 
@@ -176,7 +173,6 @@ fn fuzz_test_compose() {
 #[test]
 fn fuzz_test_transform() {
     use rand::Rng;
-    use rand::distributions::{Range, Sample};
 
     let mut rng = rand::thread_rng();
 
@@ -195,4 +191,3 @@ fn fuzz_test_transform() {
         assert_eq!(apply(&original, &left), apply(&original, &right));
     }
 }
-
