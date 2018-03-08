@@ -28,6 +28,14 @@ impl Operation {
         }
     }
 
+    pub fn source_len(&self) -> usize {
+        self.source_len
+    }
+
+    pub fn target_len(&self) -> usize {
+        self.target_len
+    }
+
     fn add(&mut self, op: PrimitiveOperation) {
         use PrimitiveOperation::*;
         match op {
@@ -125,6 +133,7 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
             }
         } else if head_second.is_none() {
             ret.add(std::mem::replace(&mut head_first, first.next()).unwrap());
+            continue;
         }
 
         if let Some(Delete(_)) = head_first {
@@ -377,4 +386,3 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
         );
     }
 }
-
