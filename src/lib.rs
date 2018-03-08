@@ -1,6 +1,6 @@
 // This source code is essentially a rewrite of https://github.com/hackmdio/hackmd/blob/master/lib/ot/text-operation.js
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum PrimitiveOperation {
     // skip n bytes of string
     Retain(usize),
@@ -10,7 +10,7 @@ enum PrimitiveOperation {
     Delete(usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Operation {
     operations: Vec<PrimitiveOperation>,
     // the length of the original string, in bytes
@@ -225,8 +225,135 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
 // transforms two operations so that composed operations will converge
 // let (left', right') = transform(left, right), these satisfies the condition
 // apply(s, compose(left, right')) == apply(s, compose(right, left'))
-pub fn transform(left: &Operation, right: &Operation) -> (Operation, Operation) {
-    unimplemented!()
+pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
+    assert_eq!(left.source_len, right.source_len);
+
+    let mut ret_left = Operation::new();
+    let mut ret_right = Operation::new();
+
+    let mut left = left.operations.into_iter();
+    let mut right = right.operations.into_iter();
+
+    let mut head_left = left.next();
+    let mut head_right = right.next();
+
+    loop {
+        use PrimitiveOperation::*;
+
+        println!("head_left = {:?}, head_right = {:?}", head_left, head_right);
+
+        if head_left.is_none() && head_right.is_none() {
+            break (ret_left, ret_right);
+        }
+
+        // if either of the head of operations is Insert, add it to the other
+        // if both of them are Insert, break a tie by adopting the left
+        if let Some(Insert(s)) = head_left {
+            ret_left.retain(s.len());
+            ret_right.insert(s);
+            head_left = left.next();
+            continue;
+        }
+
+        if let Some(Insert(s)) = head_right {
+            ret_right.retain(s.len());
+            ret_left.insert(s);
+            head_right = right.next();
+            continue;
+        }
+
+        if head_left.is_none() {
+            panic!("reaching here may be a bug: left is too short");
+            ret_left.add(std::mem::replace(&mut head_right, right.next()).unwrap());
+            continue;
+        }
+
+        if head_right.is_none() {
+            panic!("reaching here may be a bug: right is too short");
+            ret_right.add(std::mem::replace(&mut head_left, left.next()).unwrap());
+            continue;
+        }
+
+        if let Some(Retain(left_len)) = head_left {
+            if let Some(Retain(right_len)) = head_right {
+                let len;
+                if left_len < right_len {
+                    len = left_len;
+                    head_left = left.next();
+                    head_right = Some(Retain(right_len - left_len));
+                } else if left_len == right_len {
+                    len = left_len;
+                    head_left = left.next();
+                    head_right = right.next();
+                } else /* left_len > right_len */ {
+                    len = right_len;
+                    head_left = Some(Retain(left_len - right_len));
+                    head_right = right.next();
+                }
+                ret_left.retain(len);
+                ret_right.retain(len);
+                continue;
+            }
+
+            if let Some(Delete(right_len)) = head_right {
+                let len;
+                if left_len < right_len {
+                    len = left_len;
+                    head_left = left.next();
+                    head_right = Some(Delete(right_len - left_len));
+                } else if left_len == right_len {
+                    len = left_len;
+                    head_left = left.next();
+                    head_right = right.next();
+                } else /* left_len > right_len */ {
+                    len = right_len;
+                    head_left = Some(Retain(left_len - right_len));
+                    head_right = right.next();
+                }
+                ret_left.delete(len);
+                continue;
+            }
+        }
+
+        if let Some(Delete(left_len)) = head_left {
+            if let Some(Retain(right_len)) = head_right {
+                let len;
+                if left_len < right_len {
+                    len = left_len;
+                    head_left = left.next();
+                    head_right = Some(Retain(right_len - left_len));
+                } else if left_len == right_len {
+                    len = left_len;
+                    head_left = left.next();
+                    head_right = right.next();
+                } else /* left_len > right_len */ {
+                    len = right_len;
+                    head_left = Some(Delete(left_len - right_len));
+                    head_right = right.next();
+                }
+                ret_right.delete(len);
+                continue;
+            }
+
+            if let Some(Delete(right_len)) = head_right {
+                if left_len < right_len {
+                    head_left = left.next();
+                    head_right = Some(Delete(right_len - left_len));
+                } else if left_len == right_len {
+                    head_left = left.next();
+                    head_right = right.next();
+                } else /* left_len > right_len */ {
+                    head_left = Some(Delete(left_len - right_len));
+                    head_right = right.next();
+                }
+            }
+            continue;
+        }
+
+        // because each branch ended with continue,
+        // reaching here means we have missing case
+        panic!("missing case! head_left = {:?}, head_right = {:?}", head_left, head_right);
+    }
 }
 
 #[test]
@@ -289,8 +416,10 @@ fn test_transform() {
         op
     };
 
-    let (left_, right_) = transform(&left, &right);
+    let (left_, right_) = transform(left.clone(), right.clone());
+    let composed_left = compose(left, left_);
+    let composed_right = compose(right, right_);
 
-    assert_eq!(apply(original, &compose(left, right_)), apply(original, &compose(right, left_)));
+    assert_eq!(apply(original, &composed_left), apply(original, &composed_right));
 }
 
