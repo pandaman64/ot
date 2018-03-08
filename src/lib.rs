@@ -392,6 +392,7 @@ fn test_compose() {
         op
     };
 
+    assert_eq!(apply(&apply(original, &first), &second), apply(original, &compose(first.clone(), second.clone())));
     assert_eq!(apply(&apply(original, &first), &second), "さようなら! 社会");
     assert_eq!(apply(original, &compose(first, second)), "さようなら! 社会");
 }
@@ -421,5 +422,7 @@ fn test_transform() {
     let composed_right = compose(right, left_);
 
     assert_eq!(apply(original, &composed_left), apply(original, &composed_right));
+    assert_eq!(apply(original, &composed_left), "!さようなら 社会");
+    assert_eq!(apply(original, &composed_right), "!さようなら 社会");
 }
 
