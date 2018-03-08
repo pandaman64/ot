@@ -249,28 +249,28 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
         // if either of the head of operations is Insert, add it to the other
         // if both of them are Insert, break a tie by adopting the left
         if let Some(Insert(s)) = head_left {
-            ret_left.retain(s.len());
-            ret_right.insert(s);
+            ret_right.retain(s.len());
+            ret_left.insert(s);
             head_left = left.next();
             continue;
         }
 
         if let Some(Insert(s)) = head_right {
-            ret_right.retain(s.len());
-            ret_left.insert(s);
+            ret_left.retain(s.len());
+            ret_right.insert(s);
             head_right = right.next();
             continue;
         }
 
         if head_left.is_none() {
             panic!("reaching here may be a bug: left is too short");
-            ret_left.add(std::mem::replace(&mut head_right, right.next()).unwrap());
+            ret_right.add(std::mem::replace(&mut head_right, right.next()).unwrap());
             continue;
         }
 
         if head_right.is_none() {
             panic!("reaching here may be a bug: right is too short");
-            ret_right.add(std::mem::replace(&mut head_left, left.next()).unwrap());
+            ret_left.add(std::mem::replace(&mut head_left, left.next()).unwrap());
             continue;
         }
 
@@ -290,8 +290,8 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     head_left = Some(Retain(left_len - right_len));
                     head_right = right.next();
                 }
-                ret_left.retain(len);
                 ret_right.retain(len);
+                ret_left.retain(len);
                 continue;
             }
 
@@ -310,7 +310,7 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     head_left = Some(Retain(left_len - right_len));
                     head_right = right.next();
                 }
-                ret_left.delete(len);
+                ret_right.delete(len);
                 continue;
             }
         }
@@ -331,7 +331,7 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     head_left = Some(Delete(left_len - right_len));
                     head_right = right.next();
                 }
-                ret_right.delete(len);
+                ret_left.delete(len);
                 continue;
             }
 
@@ -417,8 +417,8 @@ fn test_transform() {
     };
 
     let (left_, right_) = transform(left.clone(), right.clone());
-    let composed_left = compose(left, left_);
-    let composed_right = compose(right, right_);
+    let composed_left = compose(left, right_);
+    let composed_right = compose(right, left_);
 
     assert_eq!(apply(original, &composed_left), apply(original, &composed_right));
 }
