@@ -155,8 +155,9 @@ fn fuzz_test_compose() {
     use rand::Rng;
     use rand::distributions::{Range, Sample};
 
+    let mut rng = rand::thread_rng();
+
     for _ in 0..100 {
-        let mut rng = rand::thread_rng();
         let original_len = rng.gen_range(32, 100);
         let original = random_string(&mut rng, original_len);
 
@@ -171,3 +172,27 @@ fn fuzz_test_compose() {
         assert_eq!(double_applied, compose_applied);
     }
 }
+
+#[test]
+fn fuzz_test_transform() {
+    use rand::Rng;
+    use rand::distributions::{Range, Sample};
+
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..100 {
+        let original_len = rng.gen_range(32, 100);
+        let original = random_string(&mut rng, original_len);
+
+        let left = random_operation(&mut rng, &original);
+        let right = random_operation(&mut rng, &original);
+
+        let (left_, right_) = transform(left.clone(), right.clone());
+
+        let left = compose(left, right_);
+        let right = compose(right, left_);
+
+        assert_eq!(apply(&original, &left), apply(&original, &right));
+    }
+}
+
