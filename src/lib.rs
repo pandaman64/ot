@@ -1,5 +1,9 @@
 // This source code is essentially a rewrite of https://github.com/hackmdio/hackmd/blob/master/lib/ot/text-operation.js
 
+pub mod util;
+pub mod server;
+pub mod client;
+
 #[derive(Debug, Clone)]
 enum PrimitiveOperation {
     // skip n bytes of string
