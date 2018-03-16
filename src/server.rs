@@ -2,6 +2,10 @@
 use super::*;
 use super::util::*;
 
+pub trait Connection {
+    fn send_state(&mut self, state: &State);
+}
+
 pub struct Server {
     history: Vec<State>,
     connections: Vec<Box<Connection>>,

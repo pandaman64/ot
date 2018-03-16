@@ -9,6 +9,3 @@ pub struct State {
     pub operation: Operation, 
 }
 
-pub trait Connection {
-    fn send_state(&mut self, state: &State);
-}
