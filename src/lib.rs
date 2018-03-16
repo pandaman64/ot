@@ -128,121 +128,84 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
     loop {
         use PrimitiveOperation::*;
 
-        if head_first.is_none() {
-            if head_second.is_none() {
-                break ret;
-            } else {
-                ret.add(std::mem::replace(&mut head_second, second.next()).unwrap());
-                continue;
-            }
-        } else if head_second.is_none() {
-            ret.add(std::mem::replace(&mut head_first, first.next()).unwrap());
-            continue;
-        }
-
-        if let Some(Delete(_)) = head_first {
-            ret.add(std::mem::replace(&mut head_first, first.next()).unwrap());
-            continue;
-        }
-
-        if let Some(Insert(_)) = head_second {
-            ret.add(std::mem::replace(&mut head_second, second.next()).unwrap());
-            continue;
-        }
-
-        if let Some(Retain(len_first)) = head_first {
-            // if both heads are Retain, consume the shorter one and add it to the result
-            // if both Retain has same length, consume both
-            if let Some(Retain(len_second)) = head_second {
+        match (head_first, head_second) {
+            (None, None) => break ret,
+            (None, value) => {
+                head_first = None;
+                head_second = second.next();
+                ret.add(value.unwrap());
+            },
+            (value, None) => {
+                head_first = first.next();
+                head_second = None;
+                ret.add(value.unwrap());
+            },
+            (Some(Delete(len)), s) => {
+                head_first = first.next();
+                head_second = s;
+                ret.delete(len);
+            },
+            (f, Some(Insert(s))) => {
+                head_first = f;
+                head_second = second.next();
+                ret.insert(s);
+            },
+            (Some(Retain(len_first)), Some(Retain(len_second))) => {
                 if len_first < len_second {
-                    ret.retain(len_first);
                     head_first = first.next();
                     head_second = Some(Retain(len_second - len_first));
-                } else if len_first == len_second {
                     ret.retain(len_first);
+                } else if len_first == len_second {
                     head_first = first.next();
                     head_second = second.next();
-                } else
-                /* if len_first > len_second */
-                {
-                    ret.retain(len_second);
+                    ret.retain(len_first);
+                } else {
                     head_first = Some(Retain(len_first - len_second));
                     head_second = second.next();
+                    ret.retain(len_second);
                 }
-                continue;
-            }
-
-            // Retain/Delete case
-            if let Some(Delete(len_second)) = head_second {
+            },
+            (Some(Retain(len_first)), Some(Delete(len_second))) => {
                 if len_first < len_second {
-                    ret.delete(len_first);
                     head_first = first.next();
                     head_second = Some(Delete(len_second - len_first));
-                } else if len_first == len_second {
                     ret.delete(len_first);
+                } else if len_first == len_second {
                     head_first = first.next();
                     head_second = second.next();
-                } else
-                /* if len_first > len_second */
-                {
-                    ret.delete(len_second);
+                    ret.delete(len_first);
+                } else {
                     head_first = Some(Retain(len_first - len_second));
                     head_second = second.next();
+                    ret.delete(len_second);
                 }
-                continue;
-            }
+            },
+            (Some(Insert(mut s)), Some(Delete(len))) => {
+                if s.len() < len {
+                    head_first = first.next();
+                    head_second = Some(Delete(len - s.len()));
+                } else if s.len() == len {
+                    head_first = first.next();
+                    head_second = second.next();
+                } else {
+                    head_first = Some(Insert(s.split_off(len)));
+                    head_second = second.next();
+                }
+            },
+            (Some(Insert(mut s)), Some(Retain(len))) => {
+                if s.len() < len {
+                    head_first = first.next();
+                    head_second = Some(Retain(len - s.len()));
+                } else if s.len() == len {
+                    head_first = first.next();
+                    head_second = second.next();
+                } else {
+                    head_first = Some(Insert(s.split_off(len)));
+                    head_second = second.next();
+                }
+                ret.insert(s);
+            },
         }
-
-        if let Some(Insert(_)) = head_first {
-            // Insert/Delete
-            if let Some(Delete(len)) = head_second {
-                if let Some(Insert(mut s)) = head_first {
-                    if s.len() < len {
-                        head_first = first.next();
-                        head_second = Some(Delete(len - s.len()));
-                    } else if s.len() == len {
-                        head_first = first.next();
-                        head_second = second.next();
-                    } else
-                    /* if s.len() > len */
-                    {
-                        head_first = Some(Insert(s.split_off(len)));
-                        head_second = second.next();
-                    }
-                }
-                continue;
-            }
-
-            // Insert/Retain
-            if let Some(Retain(len)) = head_second {
-                if let Some(Insert(mut s)) = head_first {
-                    if s.len() < len {
-                        head_first = first.next();
-                        head_second = Some(Retain(len - s.len()));
-                        ret.insert(s);
-                    } else if s.len() == len {
-                        head_first = first.next();
-                        head_second = second.next();
-                        ret.insert(s);
-                    } else
-                    /* if s.len() > len */
-                    {
-                        let latter = s.split_off(len);
-                        head_first = Some(Insert(latter));
-                        head_second = second.next();
-                        ret.insert(s);
-                    }
-                }
-                continue;
-            }
-        }
-
-        // because each branch ended with continue,
-        // reaching here means we have missing case
-        panic!(
-            "missing case! head_first = {:?}, head_second = {:?}",
-            head_first, head_second
-        );
     }
 }
 
