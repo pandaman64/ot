@@ -191,3 +191,73 @@ fn fuzz_test_transform() {
         assert_eq!(apply(&original, &left), apply(&original, &right));
     }
 }
+
+extern crate futures;
+
+#[test]
+fn test_client_server() {
+    use std::rc::Rc;
+    use std::cell::RefCell;
+
+    use self::futures::Future;
+    use self::futures::executor::block_on;
+
+    use ot::*;
+    use ot::util::*;
+    use ot::server::*;
+    use ot::client::*;
+
+    struct MockConnection(Rc<RefCell<Server>>);
+    
+    impl<'a> server::Connection for &'a MockConnection {
+        fn send_state(&mut self, _state: &State) {
+        }
+    }
+
+    impl<'a> client::Connection for &'a MockConnection {
+        type Error = String;
+        type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
+
+        fn get_latest_state(&self) -> (Id, Operation) {
+            let server = self.0.borrow();
+            let state = server.current_state();
+            (state.id.clone(), state.operation.clone())
+        }
+
+        fn send_operation(&self, parent: Id, op: Operation) -> Self::Output {
+            use futures::future::result;
+
+            let mut server = self.0.borrow_mut();
+            Box::new(result(server.modify(parent, op)))
+        }
+    }
+
+    let server = Rc::new(RefCell::new(Server::new()));
+
+    let connection1 = MockConnection(server.clone());
+    let connection2 = MockConnection(server.clone());
+
+    server.borrow_mut().connect(Box::new(&connection1));
+    server.borrow_mut().connect(Box::new(&connection2));
+
+    let mut client1 = Client::with_connection(Box::new(&connection1));
+    let mut client2 = Client::with_connection(Box::new(&connection2));
+
+    assert_eq!(client1.current_content().unwrap(), "");
+    assert_eq!(client2.current_content().unwrap(), "");
+
+    client1.push_operation({
+        let mut op = Operation::new();
+        op.insert("こんにちは 世界".into());
+        op
+    });
+    {
+        let future = client1.send_to_server().unwrap();
+        block_on(client1.apply_response(future)).unwrap();
+    }
+
+    assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
+    assert_eq!(client2.current_content().unwrap(), "");
+
+}
+

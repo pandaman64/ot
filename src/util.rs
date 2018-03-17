@@ -6,6 +6,7 @@ pub struct Id(pub usize);
 #[derive(Clone, Debug)]
 pub struct State {
     pub parent: Id,
+    pub id: Id,
     pub operation: Operation, 
 }
 

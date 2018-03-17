@@ -12,7 +12,7 @@ pub trait Connection {
     type Output: Future<Item = (Id, Operation), Error = Self::Error>;
 
     fn get_latest_state(&self) -> (Id, Operation);
-    fn send_operation(&self, operation: Operation) -> Self::Output;
+    fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
 pub enum Client<C: Connection> {
@@ -40,6 +40,23 @@ impl<C: Connection> Client<C> {
         }
     }
 
+    pub fn current_content(&self) -> Result<String, String> {
+        use self::Client::*;
+        match *self {
+            WaitingForResponse {
+                ref sent_operation, ref current_operation, ..
+            } => {
+                Ok(apply("", &compose(sent_operation.clone(), current_operation.clone())))
+            },
+            Buffering {
+                ref current_operation, ..
+            } => {
+                Ok(apply("", current_operation))
+            },
+            Error(ref error) => Err(error.clone()),
+        }
+    }
+
     pub fn push_operation(&mut self, operation: Operation) {
         use self::Client::*;
         match *self {
@@ -59,17 +76,19 @@ impl<C: Connection> Client<C> {
         }
     }
 
-    pub fn send_to_server(&mut self) -> Result<C::Output, ()> {
+    pub fn send_to_server(&mut self) -> Result<C::Output, String> {
         use self::Client::*;
         if let Buffering { .. } = *self {
             if let Buffering { base_id, current_operation, connection } = std::mem::replace(self, Error("".into())) {
-                let ret = connection.send_operation(current_operation.clone());
+                let ret = connection.send_operation(base_id.clone(), current_operation.clone());
                 *self = WaitingForResponse {
                     base_id: base_id,
+                    current_operation: {
+                        let mut op = Operation::new();
+                        op.retain(current_operation.target_len());
+                        op
+                    },
                     sent_operation: current_operation,
-                    // this might have to be Operation::new().retain(sent_operation.target_len())
-                    // because this is the operation that satisfies compose(sent, current) == sent 
-                    current_operation: Operation::new(),
                     connection: connection,
                 };
                 Ok(ret)
@@ -77,7 +96,7 @@ impl<C: Connection> Client<C> {
                 unreachable!();
             }
         } else {
-            Err(())
+            Err("client is not in buffering state".into())
         }
     }
 
