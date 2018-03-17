@@ -176,7 +176,7 @@ fn fuzz_test_transform() {
 
     let mut rng = rand::thread_rng();
 
-    for _ in 0..100 {
+    for _ in 0..1000 {
         let original_len = rng.gen_range(32, 100);
         let original = random_string(&mut rng, original_len);
 
