@@ -227,36 +227,23 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
     loop {
         use PrimitiveOperation::*;
 
-        if head_left.is_none() && head_right.is_none() {
-            break (ret_left, ret_right);
-        }
-
-        // if either of the head of operations is Insert, add it to the other
-        // if both of them are Insert, break a tie by adopting the left
-        if let Some(Insert(s)) = head_left {
-            ret_right.retain(s.len());
-            ret_left.insert(s);
-            head_left = left.next();
-            continue;
-        }
-
-        if let Some(Insert(s)) = head_right {
-            ret_left.retain(s.len());
-            ret_right.insert(s);
-            head_right = right.next();
-            continue;
-        }
-
-        if head_left.is_none() {
-            panic!("reaching here is a bug: left is too short");
-        }
-
-        if head_right.is_none() {
-            panic!("reaching here is a bug: right is too short");
-        }
-
-        if let Some(Retain(left_len)) = head_left {
-            if let Some(Retain(right_len)) = head_right {
+        match (head_left, head_right) {
+            (None, None) => break (ret_left, ret_right),
+            (Some(Insert(s)), value) => {
+                ret_right.retain(s.len());
+                ret_left.insert(s);
+                head_left = left.next();
+                head_right = value;
+            },
+            (value, Some(Insert(s))) => {
+                ret_left.retain(s.len());
+                ret_right.insert(s);
+                head_left = value;
+                head_right = right.next();
+            },
+            (None, _) => unreachable!("left is too short"),
+            (_, None) => unreachable!("right is too short"),
+            (Some(Retain(left_len)), Some(Retain(right_len))) => {
                 let len;
                 if left_len < right_len {
                     len = left_len;
@@ -266,19 +253,27 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     len = left_len;
                     head_left = left.next();
                     head_right = right.next();
-                } else
-                /* left_len > right_len */
-                {
+                } else {
                     len = right_len;
                     head_left = Some(Retain(left_len - right_len));
                     head_right = right.next();
                 }
-                ret_right.retain(len);
                 ret_left.retain(len);
-                continue;
-            }
-
-            if let Some(Delete(right_len)) = head_right {
+                ret_right.retain(len);
+            },
+            (Some(Delete(left_len)), Some(Delete(right_len))) => {
+                if left_len < right_len {
+                    head_left = left.next();
+                    head_right = Some(Delete(right_len - left_len));
+                } else if left_len == right_len {
+                    head_left = left.next();
+                    head_right = right.next();
+                } else {
+                    head_left = Some(Delete(left_len - right_len));
+                    head_right = right.next();
+                }
+            },
+            (Some(Retain(left_len)), Some(Delete(right_len))) => {
                 let len;
                 if left_len < right_len {
                     len = left_len;
@@ -288,20 +283,14 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     len = left_len;
                     head_left = left.next();
                     head_right = right.next();
-                } else
-                /* left_len > right_len */
-                {
+                } else {
                     len = right_len;
                     head_left = Some(Retain(left_len - right_len));
                     head_right = right.next();
                 }
                 ret_right.delete(len);
-                continue;
-            }
-        }
-
-        if let Some(Delete(left_len)) = head_left {
-            if let Some(Retain(right_len)) = head_right {
+            },
+            (Some(Delete(left_len)), Some(Retain(right_len))) => {
                 let len;
                 if left_len < right_len {
                     len = left_len;
@@ -311,39 +300,13 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     len = left_len;
                     head_left = left.next();
                     head_right = right.next();
-                } else
-                /* left_len > right_len */
-                {
+                } else {
                     len = right_len;
                     head_left = Some(Delete(left_len - right_len));
                     head_right = right.next();
                 }
                 ret_left.delete(len);
-                continue;
-            }
-
-            if let Some(Delete(right_len)) = head_right {
-                if left_len < right_len {
-                    head_left = left.next();
-                    head_right = Some(Delete(right_len - left_len));
-                } else if left_len == right_len {
-                    head_left = left.next();
-                    head_right = right.next();
-                } else
-                /* left_len > right_len */
-                {
-                    head_left = Some(Delete(left_len - right_len));
-                    head_right = right.next();
-                }
-            }
-            continue;
+            },
         }
-
-        // because each branch ended with continue,
-        // reaching here means we have missing case
-        panic!(
-            "missing case! head_left = {:?}, head_right = {:?}",
-            head_left, head_right
-        );
     }
 }
