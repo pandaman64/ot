@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["pandaman <kointosudesuyo@infoseek.jp>"]
 
 [dependencies]
-futures = "0.1.17"
+futures = "0.2.0-alpha"
+futures-util = "0.2.0-alpha"
 
 [dev-dependencies]
 rand = "0.4"
