@@ -15,6 +15,12 @@ pub trait Connection {
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
+// TODO: change base_id: Id to base_state: State and manage the difference from base_state to the
+// current buffer as current_operation
+// base_state is the last state we fetched from the server,
+// sent_operation is an operation originating from base_state, containing diffs sent to the server
+// current_operation is an operation originating from compose(base_state, sent_operation) or
+// base_state, which holds diffs between the parent and the current buffer 
 pub enum Client<C: Connection> {
     WaitingForResponse {
         base_id: Id,

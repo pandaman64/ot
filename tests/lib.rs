@@ -208,7 +208,7 @@ fn test_client_server() {
     use ot::client::*;
 
     struct MockConnection(Rc<RefCell<Server>>);
-    
+
     impl<'a> server::Connection for &'a MockConnection {
         fn send_state(&mut self, _state: &State) {
         }
@@ -259,5 +259,34 @@ fn test_client_server() {
     assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
     assert_eq!(client2.current_content().unwrap(), "");
 
+    client2.push_operation({
+        let mut op = Operation::new();
+        op.insert("!".into());
+        op
+    });
+    {
+        let future = client2.send_to_server().unwrap();
+        block_on(client2.apply_response(future)).unwrap();
+    }
+
+    assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
+    assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
+
+    client1.push_operation({
+        let mut op = Operation::new();
+        op.delete("こんにちは".len());
+        op.insert("さようなら".into());
+        op.retain(" 世界".len());
+        println!("op = {:?}", op);
+        op
+    });
+    {
+        let future = client1.send_to_server().unwrap();
+        block_on(client1.apply_response(future)).unwrap();
+    }
+
+    assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
+    assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
+    
 }
 

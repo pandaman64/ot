@@ -32,6 +32,12 @@ impl Server {
     }
 
     pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Operation), String> {
+        println!("---------------------------");
+        println!("parent = {:?}, operation = {:?}", parent, operation);
+        for (idx, op) in self.history.iter().enumerate() {
+            println!("history[{}] = {:?}", idx, op);
+        }
+
         self.history
             .get(parent.0)
             .ok_or_else(|| "invalid parent id".into())
