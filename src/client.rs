@@ -2,41 +2,35 @@
 use super::*;
 use util::*;
 
-trait Future {
-    type Item;
-    type Error;
-}
+extern crate futures;
 
-pub struct ServerOperation {
-}
-
-impl Future for ServerOperation {
-    type Item = Operation;
-    type Error = ();
-}
+use self::futures::Future;
 
 pub trait Connection {
+    type Error;
+    type Output: Future<Item = Operation, Error = Self::Error>;
+
     fn get_latest_state(&self) -> (Id, Operation);
-    fn send_operation(&self, operation: Operation) -> ServerOperation;
+    fn send_operation(&self, operation: Operation) -> Self::Output;
 }
 
-pub enum Client {
+pub enum Client<C: Connection> {
     WaitingForResponse {
         base_id: Id,
         sent_operation: Operation,
         current_operation: Operation,
-        connection: Box<Connection>,
+        connection: Box<C>,
     },
     Buffering {
         base_id: Id,
         current_operation: Operation,
-        connection: Box<Connection>,
+        connection: Box<C>,
     },
     Error(String),
 }
 
-impl Client {
-    pub fn with_connection(connection: Box<Connection>) -> Self {
+impl<C: Connection> Client<C> {
+    pub fn with_connection(connection: Box<C>) -> Self {
         let (base_id, current) = connection.get_latest_state();
         Client::Buffering {
             base_id: base_id,
