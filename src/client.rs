@@ -9,9 +9,9 @@ use self::futures::FutureExt;
 
 pub trait Connection {
     type Error;
-    type Output: Future<Item = (Id, Operation), Error = Self::Error>;
+    type Output: Future<Item = (Id, Id, Operation), Error = Self::Error>;
 
-    fn get_latest_state(&self) -> (Id, Operation);
+    fn get_latest_state(&self) -> State;
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
@@ -23,14 +23,14 @@ pub trait Connection {
 // base_state, which holds diffs between the parent and the current buffer 
 pub enum Client<C: Connection> {
     WaitingForResponse {
-        base_id: Id,
-        sent_operation: Operation,
-        current_operation: Operation,
+        base_state: State,
+        sent_diff: Operation,
+        current_diff: Operation,
         connection: Box<C>,
     },
     Buffering {
-        base_id: Id,
-        current_operation: Operation,
+        base_state: State,
+        current_diff: Operation,
         connection: Box<C>,
     },
     Error(String),
@@ -38,10 +38,14 @@ pub enum Client<C: Connection> {
 
 impl<C: Connection> Client<C> {
     pub fn with_connection(connection: Box<C>) -> Self {
-        let (base_id, current) = connection.get_latest_state();
+        let state = connection.get_latest_state();
         Client::Buffering {
-            base_id: base_id,
-            current_operation: current,
+            current_diff: {
+                let mut op = Operation::new();
+                op.retain(state.operation.target_len());
+                op
+            },
+            base_state: state,
             connection: connection,
         }
     }
@@ -50,14 +54,14 @@ impl<C: Connection> Client<C> {
         use self::Client::*;
         match *self {
             WaitingForResponse {
-                ref sent_operation, ref current_operation, ..
+                ref base_state, ref sent_diff, ref current_diff, ..
             } => {
-                Ok(apply("", &compose(sent_operation.clone(), current_operation.clone())))
+                Ok(apply("", &compose(base_state.operation.clone(), compose(sent_diff.clone(), current_diff.clone()))))
             },
             Buffering {
-                ref current_operation, ..
+                ref base_state, ref current_diff, ..
             } => {
-                Ok(apply("", current_operation))
+                Ok(apply("", &compose(base_state.operation.clone(), current_diff.clone())))
             },
             Error(ref error) => Err(error.clone()),
         }
@@ -67,16 +71,16 @@ impl<C: Connection> Client<C> {
         use self::Client::*;
         match *self {
             WaitingForResponse {
-                ref mut current_operation, ..
+                ref mut current_diff, ..
             } => {
-                let current = std::mem::replace(current_operation, Operation::new());
-                *current_operation = compose(current, operation);
+                let current = std::mem::replace(current_diff, Operation::new());
+                *current_diff = compose(current, operation);
             },
             Buffering {
-                ref mut current_operation, ..
+                ref mut current_diff, ..
             } => {
-                let current = std::mem::replace(current_operation, Operation::new());
-                *current_operation = compose(current, operation);
+                let current = std::mem::replace(current_diff, Operation::new());
+                *current_diff = compose(current, operation);
             },
             Error(_) => {},
         }
@@ -85,16 +89,16 @@ impl<C: Connection> Client<C> {
     pub fn send_to_server(&mut self) -> Result<C::Output, String> {
         use self::Client::*;
         if let Buffering { .. } = *self {
-            if let Buffering { base_id, current_operation, connection } = std::mem::replace(self, Error("".into())) {
-                let ret = connection.send_operation(base_id.clone(), current_operation.clone());
+            if let Buffering { base_state, current_diff, connection } = std::mem::replace(self, Error("".into())) {
+                let ret = connection.send_operation(base_state.id.clone(), current_diff.clone());
                 *self = WaitingForResponse {
-                    base_id: base_id,
-                    current_operation: {
+                    base_state: base_state,
+                    current_diff: {
                         let mut op = Operation::new();
-                        op.retain(current_operation.target_len());
+                        op.retain(current_diff.target_len());
                         op
                     },
-                    sent_operation: current_operation,
+                    sent_diff: current_diff,
                     connection: connection,
                 };
                 Ok(ret)
@@ -108,17 +112,26 @@ impl<C: Connection> Client<C> {
 
     // this should be impl Future
     pub fn apply_response<'a>(&'a mut self, response: C::Output) -> Box<Future<Item = (), Error = C::Error> + 'a> {
-        Box::new(response.map(move |(id, op)| {
+        Box::new(response.map(move |(parent_id, id, op)| {
             use self::Client::*;
             match std::mem::replace(self, Error("".into())) {
                 WaitingForResponse {
-                    sent_operation, current_operation, connection, ..
+                    sent_diff, current_diff, connection, ..
                 } => {
-                    let (current_, _) = transform(current_operation, op.clone());
-                    
+                    let (current_, _) = transform(current_diff, op.clone());
+                    let current_operation = compose(compose(sent_diff, op), current_);
+
                     *self = Buffering {
-                        base_id: id,
-                        current_operation: compose(compose(sent_operation, op), current_),
+                        current_diff: {
+                            let mut op = Operation::new();
+                            op.retain(current_operation.target_len());
+                            op
+                        },
+                        base_state: State {
+                            parent: parent_id,
+                            id: id,
+                            operation: current_operation,
+                        },
                         connection: connection,
                     };
                 },

@@ -216,12 +216,11 @@ fn test_client_server() {
 
     impl<'a> client::Connection for &'a MockConnection {
         type Error = String;
-        type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
+        type Output = Box<Future<Item = (Id, Id, Operation), Error = Self::Error>>;
 
-        fn get_latest_state(&self) -> (Id, Operation) {
+        fn get_latest_state(&self) -> State {
             let server = self.0.borrow();
-            let state = server.current_state();
-            (state.id.clone(), state.operation.clone())
+            server.current_state().clone()
         }
 
         fn send_operation(&self, parent: Id, op: Operation) -> Self::Output {

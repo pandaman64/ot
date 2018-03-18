@@ -31,7 +31,7 @@ impl Server {
         //self.connections.push(connection);
     }
 
-    pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Operation), String> {
+    pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Id, Operation), String> {
         println!("---------------------------");
         println!("parent = {:?}, operation = {:?}", parent, operation);
         for (idx, op) in self.history.iter().enumerate() {
@@ -53,11 +53,11 @@ impl Server {
             })
             .map(|(parent_id, id, client_op, server_op)| {
                 self.history.push(State {
-                    parent: parent_id,
+                    parent: parent_id.clone(),
                     id: id.clone(),
                     operation: client_op
                 });
-                (id, server_op)
+                (parent_id, id, server_op)
             })
     }
 }
