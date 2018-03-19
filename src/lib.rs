@@ -99,7 +99,7 @@ impl Operation {
 pub fn apply(mut original: &str, operation: &Operation) -> String {
     let mut ret = String::with_capacity(operation.target_len);
 
-    assert_eq!(original.len(), operation.source_len);
+    assert_eq!(original.len(), operation.source_len, "the length of string {} and the source length of operation {:?} must match", original, operation);
 
     for op in operation.operations.iter() {
         use PrimitiveOperation::*;
@@ -121,7 +121,7 @@ pub fn apply(mut original: &str, operation: &Operation) -> String {
 // compose two operations
 // compose must satisfy apply(apply(s, a), b) == apply(s, compose(a, b))
 pub fn compose(first: Operation, second: Operation) -> Operation {
-    assert_eq!(first.target_len, second.source_len);
+    assert_eq!(first.target_len, second.source_len, "the target length of first operation {:?} and the source length of second operation {:?} must match", first, second);
 
     let mut ret = Operation::new();
 
@@ -219,7 +219,7 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
 // let (left', right') = transform(left, right), these satisfies the condition
 // apply(s, compose(left, right')) == apply(s, compose(right, left'))
 pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
-    assert_eq!(left.source_len, right.source_len);
+    assert_eq!(left.source_len, right.source_len, "the source of both operation must match. left = {:?}, right = {:?}", left, right);
 
     let mut ret_left = Operation::new();
     let mut ret_right = Operation::new();

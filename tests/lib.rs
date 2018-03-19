@@ -216,7 +216,7 @@ fn test_client_server() {
 
     impl<'a> client::Connection for &'a MockConnection {
         type Error = String;
-        type Output = Box<Future<Item = (Id, Id, Operation), Error = Self::Error>>;
+        type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
 
         fn get_latest_state(&self) -> State {
             let server = self.0.borrow();
@@ -276,7 +276,6 @@ fn test_client_server() {
         op.delete("こんにちは".len());
         op.insert("さようなら".into());
         op.retain(" 世界".len());
-        println!("op = {:?}", op);
         op
     });
     {

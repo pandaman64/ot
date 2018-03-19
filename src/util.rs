@@ -7,6 +7,7 @@ pub struct Id(pub usize);
 pub struct State {
     pub parent: Id,
     pub id: Id,
-    pub operation: Operation, 
+    pub diff: Operation, 
+    pub content: String,
 }
 

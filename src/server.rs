@@ -14,7 +14,12 @@ pub struct Server {
 impl Server {
     pub fn new() -> Self {
         let history = vec![
-            State { parent: Id(0), id: Id(0), operation: Operation::new() }
+            State { 
+                parent: Id(0),
+                id: Id(0),
+                diff: Operation::new(),
+                content: "".into() 
+            }
         ]; 
         Server {
             history: history,
@@ -31,34 +36,34 @@ impl Server {
         //self.connections.push(connection);
     }
 
-    pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Id, Operation), String> {
-        println!("---------------------------");
-        println!("parent = {:?}, operation = {:?}", parent, operation);
-        for (idx, op) in self.history.iter().enumerate() {
-            println!("history[{}] = {:?}", idx, op);
-        }
+    pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Operation), String> {
+        if self.history.len() <= parent.0 {
+            Err("index out of range".into())
+        } else {
+            let parent_id = Id(self.history.len() - 1);
+            let id = Id(self.history.len());
+            let mut server_op = {
+                let mut op = Operation::new();
+                op.retain(self.history[parent.0].diff.target_len());
+                op
+            };
 
-        self.history
-            .get(parent.0)
-            .ok_or_else(|| "invalid parent id".into())
-            .map(|server_op| {
-                let mut server_op = server_op.operation.clone();
-                for state in self.history[(parent.0 + 1)..].iter() {
-                    server_op = compose(server_op, state.operation.clone());
-                }
-                let (client_op, server_op) = transform(operation, server_op);
-                let new_parent = self.history.len() - 1;
-                let new_id = self.history.len();
-                (Id(new_parent), Id(new_id), client_op, server_op)
-            })
-            .map(|(parent_id, id, client_op, server_op)| {
-                self.history.push(State {
-                    parent: parent_id.clone(),
-                    id: id.clone(),
-                    operation: client_op
-                });
-                (parent_id, id, server_op)
-            })
+            for state in self.history.iter().skip(parent.0 + 1) {
+                server_op = compose(server_op, state.diff.clone());
+            }
+
+            let (server_diff, client_diff) = transform(operation, server_op.clone());
+            let content_source = self.history[parent.0].content.clone(); 
+
+            self.history.push(State {
+                parent: parent_id.clone(),
+                id: id.clone(),
+                content: apply(&content_source, &compose(server_op, server_diff.clone())),
+                diff: server_diff,
+            });
+
+            Ok((id, client_diff))
+        }
     }
 }
 

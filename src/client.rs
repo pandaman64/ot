@@ -9,10 +9,16 @@ use self::futures::FutureExt;
 
 pub trait Connection {
     type Error;
-    type Output: Future<Item = (Id, Id, Operation), Error = Self::Error>;
+    type Output: Future<Item = (Id, Operation), Error = Self::Error>;
 
     fn get_latest_state(&self) -> State;
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
+}
+
+#[derive(Debug)]
+pub struct ClientState {
+    id: Id,
+    content: String,
 }
 
 // TODO: change base_id: Id to base_state: State and manage the difference from base_state to the
@@ -23,13 +29,13 @@ pub trait Connection {
 // base_state, which holds diffs between the parent and the current buffer 
 pub enum Client<C: Connection> {
     WaitingForResponse {
-        base_state: State,
+        base_state: ClientState,
         sent_diff: Operation,
         current_diff: Operation,
         connection: Box<C>,
     },
     Buffering {
-        base_state: State,
+        base_state: ClientState,
         current_diff: Operation,
         connection: Box<C>,
     },
@@ -42,10 +48,13 @@ impl<C: Connection> Client<C> {
         Client::Buffering {
             current_diff: {
                 let mut op = Operation::new();
-                op.retain(state.operation.target_len());
+                op.retain(state.content.len());
                 op
             },
-            base_state: state,
+            base_state: ClientState {
+                id: state.id,
+                content: state.content
+            },
             connection: connection,
         }
     }
@@ -54,14 +63,11 @@ impl<C: Connection> Client<C> {
         use self::Client::*;
         match *self {
             WaitingForResponse {
-                ref base_state, ref sent_diff, ref current_diff, ..
+                ref base_state, ..
+            } | Buffering {
+                ref base_state, ..
             } => {
-                Ok(apply("", &compose(base_state.operation.clone(), compose(sent_diff.clone(), current_diff.clone()))))
-            },
-            Buffering {
-                ref base_state, ref current_diff, ..
-            } => {
-                Ok(apply("", &compose(base_state.operation.clone(), current_diff.clone())))
+                Ok(base_state.content.clone())
             },
             Error(ref error) => Err(error.clone()),
         }
@@ -112,25 +118,21 @@ impl<C: Connection> Client<C> {
 
     // this should be impl Future
     pub fn apply_response<'a>(&'a mut self, response: C::Output) -> Box<Future<Item = (), Error = C::Error> + 'a> {
-        Box::new(response.map(move |(parent_id, id, op)| {
+        Box::new(response.map(move |(id, op)| {
             use self::Client::*;
             match std::mem::replace(self, Error("".into())) {
                 WaitingForResponse {
-                    sent_diff, current_diff, connection, ..
+                    base_state, sent_diff, current_diff, connection, 
                 } => {
-                    let (current_, _) = transform(current_diff, op.clone());
-                    let current_operation = compose(compose(sent_diff, op), current_);
+                    let content = apply(&base_state.content, &compose(sent_diff, op.clone()));
+
+                    let (current_diff, _) = transform(current_diff, op);
 
                     *self = Buffering {
-                        current_diff: {
-                            let mut op = Operation::new();
-                            op.retain(current_operation.target_len());
-                            op
-                        },
-                        base_state: State {
-                            parent: parent_id,
+                        current_diff: current_diff,
+                        base_state: ClientState {
                             id: id,
-                            operation: current_operation,
+                            content: content,
                         },
                         connection: connection,
                     };
