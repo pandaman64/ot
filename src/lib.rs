@@ -73,18 +73,24 @@ impl Operation {
 
     // NOTE: len is in bytes
     pub fn retain(&mut self, len: usize) -> &mut Self {
-        self.add(PrimitiveOperation::Retain(len));
+        if len > 0 {
+            self.add(PrimitiveOperation::Retain(len));
+        }
         self
     }
 
     pub fn insert(&mut self, s: String) -> &mut Self {
-        self.add(PrimitiveOperation::Insert(s));
+        if s.len() > 0 {
+            self.add(PrimitiveOperation::Insert(s));
+        }
         self
     }
 
     // NOTE: len is in bytes
     pub fn delete(&mut self, len: usize) -> &mut Self {
-        self.add(PrimitiveOperation::Delete(len));
+        if len > 0 {
+            self.add(PrimitiveOperation::Delete(len));
+        }
         self
     }
 }
