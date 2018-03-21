@@ -24,6 +24,13 @@ pub struct ClientState {
     content: String,
 }
 
+#[derive(Debug)]
+pub enum ClientError<'a, E> {
+    ConnectionError(E),
+    OutOfDate,
+    NotConnected(&'a str),
+}
+
 pub enum Client<'c, C: Connection + 'c> {
     WaitingForResponse {
         base_state: ClientState,
@@ -130,6 +137,38 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
                 _ => unreachable!()
             }
         }))
+    }
+
+    pub fn update<'a>(&'a mut self) -> Box<Future<Item = (), Error = ClientError<'a, C::Error>> + 'a> {
+        use self::Client::*;
+        use self::ClientError::*;
+        use self::futures::future::{ok, err};
+
+        match *self {
+            Error(ref s, _) => Box::new(err(NotConnected(s))),
+            WaitingForResponse { .. } => Box::new(err(OutOfDate)),
+            Buffering {
+                ref mut base_state,
+                ref mut current_diff,
+                ref mut connection,
+            } => {
+                Box::new(connection.get_latest_state()
+                    .map_err(ConnectionError) // should we change self to Error?
+                    .and_then(move |state| 
+                        if base_state.id == state.parent {
+                            if let Some(current) = std::mem::replace(current_diff, None) {
+                                *current_diff = Some(transform(current, state.diff).0);
+                            }
+                            *base_state = ClientState {
+                                id: state.id,
+                                content: state.content
+                            };
+                            Box::new(ok(()))
+                        } else {
+                            Box::new(err(OutOfDate))
+                        }))
+            },
+        }
     }
 }
 

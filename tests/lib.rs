@@ -289,5 +289,9 @@ fn test_client_server() {
     assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
     assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
     
+    block_on(client2.update()).unwrap();
+
+    assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
+    assert_eq!(client2.current_content().unwrap(), "!さようなら 世界");
 }
 
