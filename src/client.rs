@@ -1,4 +1,6 @@
 
+use std::marker::PhantomData;
+
 use super::*;
 use util::*;
 
@@ -10,8 +12,9 @@ use self::futures::FutureExt;
 pub trait Connection {
     type Error;
     type Output: Future<Item = (Id, Operation), Error = Self::Error>;
+    type StateFuture: Future<Item = State, Error = Self::Error>;
 
-    fn get_latest_state(&self) -> State;
+    fn get_latest_state(&self) -> Self::StateFuture;
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
@@ -21,36 +24,33 @@ pub struct ClientState {
     content: String,
 }
 
-pub enum Client<C: Connection> {
+pub enum Client<'c, C: Connection + 'c> {
     WaitingForResponse {
         base_state: ClientState,
         sent_diff: Operation,
-        current_diff: Operation,
+        current_diff: Option<Operation>,
         connection: Box<C>,
     },
     Buffering {
         base_state: ClientState,
-        current_diff: Operation,
+        current_diff: Option<Operation>,
         connection: Box<C>,
     },
-    Error(String),
+    Error(String, PhantomData<&'c ()>),
 }
 
-impl<C: Connection> Client<C> {
-    pub fn with_connection(connection: Box<C>) -> Self {
-        let state = connection.get_latest_state();
-        Client::Buffering {
-            current_diff: {
-                let mut op = Operation::new();
-                op.retain(state.content.len());
-                op
-            },
-            base_state: ClientState {
-                id: state.id,
-                content: state.content
-            },
-            connection: connection,
-        }
+impl<'c, C: Connection + 'c> Client<'c, C> {
+    pub fn with_connection(connection: Box<C>) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
+        Box::new(connection.get_latest_state()
+            .map(|state| 
+                Client::Buffering {
+                    current_diff: None,
+                    base_state: ClientState {
+                        id: state.id,
+                        content: state.content
+                    },
+                    connection: connection,
+                }))
     }
 
     pub fn current_content(&self) -> Result<String, String> {
@@ -63,7 +63,7 @@ impl<C: Connection> Client<C> {
             } => {
                 Ok(base_state.content.clone())
             },
-            Error(ref error) => Err(error.clone()),
+            Error(ref error, _) => Err(error.clone()),
         }
     }
 
@@ -72,32 +72,28 @@ impl<C: Connection> Client<C> {
         match *self {
             WaitingForResponse {
                 ref mut current_diff, ..
-            } => {
-                let current = std::mem::replace(current_diff, Operation::new());
-                *current_diff = compose(current, operation);
-            },
-            Buffering {
+            } | Buffering {
                 ref mut current_diff, ..
             } => {
-                let current = std::mem::replace(current_diff, Operation::new());
-                *current_diff = compose(current, operation);
+                if let Some(current) = std::mem::replace(current_diff, None) {
+                    *current_diff = Some(compose(current, operation));
+                } else {
+                    *current_diff = Some(operation);
+                }
             },
-            Error(_) => {},
+            Error(_, _) => {},
         }
     }
 
     pub fn send_to_server(&mut self) -> Result<C::Output, String> {
         use self::Client::*;
-        if let Buffering { .. } = *self {
-            if let Buffering { base_state, current_diff, connection } = std::mem::replace(self, Error("".into())) {
+        if let &mut Buffering { current_diff: Some(_), .. } = self {
+            if let Buffering { base_state, current_diff, connection } = std::mem::replace(self, Error("".into(), PhantomData)) {
+                let current_diff = current_diff.unwrap();
                 let ret = connection.send_operation(base_state.id.clone(), current_diff.clone());
                 *self = WaitingForResponse {
                     base_state: base_state,
-                    current_diff: {
-                        let mut op = Operation::new();
-                        op.retain(current_diff.target_len());
-                        op
-                    },
+                    current_diff: None,
                     sent_diff: current_diff,
                     connection: connection,
                 };
@@ -105,6 +101,8 @@ impl<C: Connection> Client<C> {
             } else {
                 unreachable!();
             }
+        } else if let Buffering { .. } = *self {
+            Err("client has no diff in buffer".into())
         } else {
             Err("client is not in buffering state".into())
         }
@@ -114,16 +112,14 @@ impl<C: Connection> Client<C> {
     pub fn apply_response<'a>(&'a mut self, response: C::Output) -> Box<Future<Item = (), Error = C::Error> + 'a> {
         Box::new(response.map(move |(id, op)| {
             use self::Client::*;
-            match std::mem::replace(self, Error("".into())) {
+            match std::mem::replace(self, Error("".into(), PhantomData)) {
                 WaitingForResponse {
                     base_state, sent_diff, current_diff, connection, 
                 } => {
                     let content = apply(&base_state.content, &compose(sent_diff, op.clone()));
 
-                    let (current_diff, _) = transform(current_diff, op);
-
                     *self = Buffering {
-                        current_diff: current_diff,
+                        current_diff: current_diff.map(|diff| transform(diff, op).0),
                         base_state: ClientState {
                             id: id,
                             content: content,

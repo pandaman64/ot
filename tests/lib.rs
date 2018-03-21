@@ -217,10 +217,13 @@ fn test_client_server() {
     impl<'a> client::Connection for &'a MockConnection {
         type Error = String;
         type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
+        type StateFuture = Box<Future<Item = State, Error = Self::Error>>;
 
-        fn get_latest_state(&self) -> State {
+        fn get_latest_state(&self) -> Self::StateFuture {
+            use futures::future::ok;
+
             let server = self.0.borrow();
-            server.current_state().clone()
+            Box::new(ok(server.current_state().clone()))
         }
 
         fn send_operation(&self, parent: Id, op: Operation) -> Self::Output {
@@ -239,8 +242,8 @@ fn test_client_server() {
     server.borrow_mut().connect(Box::new(&connection1));
     server.borrow_mut().connect(Box::new(&connection2));
 
-    let mut client1 = Client::with_connection(Box::new(&connection1));
-    let mut client2 = Client::with_connection(Box::new(&connection2));
+    let mut client1 = block_on(Client::with_connection(Box::new(&connection1))).unwrap();
+    let mut client2 = block_on(Client::with_connection(Box::new(&connection2))).unwrap();
 
     assert_eq!(client1.current_content().unwrap(), "");
     assert_eq!(client2.current_content().unwrap(), "");
