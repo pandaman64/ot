@@ -1,6 +1,4 @@
 
-use std::marker::PhantomData;
-
 use super::*;
 use util::*;
 
@@ -36,20 +34,20 @@ pub enum Client<'c, C: Connection + 'c> {
         base_state: ClientState,
         sent_diff: Operation,
         current_diff: Option<Operation>,
-        connection: Box<C>,
+        connection: &'c mut C,
     },
     Buffering {
         base_state: ClientState,
         current_diff: Option<Operation>,
-        connection: Box<C>,
+        connection: &'c mut C,
     },
-    Error(String, PhantomData<&'c ()>),
+    Error(String),
 }
 
 impl<'c, C: Connection + 'c> Client<'c, C> {
-    pub fn with_connection(connection: Box<C>) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
+    pub fn with_connection(connection: &'c mut C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
         Box::new(connection.get_latest_state()
-            .map(|state| 
+            .map(move |state| 
                 Client::Buffering {
                     current_diff: None,
                     base_state: ClientState {
@@ -70,7 +68,7 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
             } => {
                 Ok(base_state.content.clone())
             },
-            Error(ref error, _) => Err(error.clone()),
+            Error(ref error) => Err(error.clone()),
         }
     }
 
@@ -88,14 +86,14 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
                     *current_diff = Some(operation);
                 }
             },
-            Error(_, _) => {},
+            Error(_) => {},
         }
     }
 
     pub fn send_to_server(&mut self) -> Result<C::Output, String> {
         use self::Client::*;
         if let &mut Buffering { current_diff: Some(_), .. } = self {
-            if let Buffering { base_state, current_diff, connection } = std::mem::replace(self, Error("".into(), PhantomData)) {
+            if let Buffering { base_state, current_diff, connection } = std::mem::replace(self, Error("".into())) {
                 let current_diff = current_diff.unwrap();
                 let ret = connection.send_operation(base_state.id.clone(), current_diff.clone());
                 *self = WaitingForResponse {
@@ -119,7 +117,7 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
     pub fn apply_response<'a>(&'a mut self, response: C::Output) -> Box<Future<Item = (), Error = C::Error> + 'a> {
         Box::new(response.map(move |(id, op)| {
             use self::Client::*;
-            match std::mem::replace(self, Error("".into(), PhantomData)) {
+            match std::mem::replace(self, Error("".into())) {
                 WaitingForResponse {
                     base_state, sent_diff, current_diff, connection, 
                 } => {
@@ -145,7 +143,7 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
         use self::futures::future::{ok, err};
 
         match *self {
-            Error(ref s, _) => Box::new(err(NotConnected(s))),
+            Error(ref s) => Box::new(err(NotConnected(s))),
             WaitingForResponse { .. } => Box::new(err(OutOfDate)),
             Buffering {
                 ref mut base_state,
