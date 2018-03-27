@@ -137,10 +137,25 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
         }))
     }
 
+    fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, new_state: State) -> Result<(), ClientError<'a, C::Error>> {
+        if base_state.id == new_state.parent {
+            if let Some(current) = std::mem::replace(current_diff, None) {
+                *current_diff = Some(transform(current, new_state.diff).0);
+            }
+            *base_state = ClientState {
+                id: new_state.id,
+                content: new_state.content,
+            };
+            Ok(())
+        } else {
+            Err(ClientError::OutOfDate)
+        }
+    }
+
     pub fn update<'a>(&'a mut self) -> Box<Future<Item = (), Error = ClientError<'a, C::Error>> + 'a> {
         use self::Client::*;
         use self::ClientError::*;
-        use self::futures::future::{ok, err};
+        use self::futures::future::err;
 
         match *self {
             Error(ref s) => Box::new(err(NotConnected(s))),
@@ -152,19 +167,7 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
             } => {
                 Box::new(connection.get_latest_state()
                     .map_err(ConnectionError) // should we change self to Error?
-                    .and_then(move |state| 
-                        if base_state.id == state.parent {
-                            if let Some(current) = std::mem::replace(current_diff, None) {
-                                *current_diff = Some(transform(current, state.diff).0);
-                            }
-                            *base_state = ClientState {
-                                id: state.id,
-                                content: state.content
-                            };
-                            Box::new(ok(()))
-                        } else {
-                            Box::new(err(OutOfDate))
-                        }))
+                    .and_then(move |state| Self::patch(base_state, current_diff, state)))
             },
         }
     }
