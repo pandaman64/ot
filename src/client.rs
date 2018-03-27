@@ -26,6 +26,7 @@ pub struct ClientState {
 pub enum ClientError<'a, E> {
     ConnectionError(E),
     OutOfDate,
+    Syncing,
     NotConnected(&'a str),
 }
 
@@ -159,7 +160,7 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
 
         match *self {
             Error(ref s) => Box::new(err(NotConnected(s))),
-            WaitingForResponse { .. } => Box::new(err(OutOfDate)),
+            WaitingForResponse { .. } => Box::new(err(Syncing)),
             Buffering {
                 ref mut base_state,
                 ref mut current_diff,
