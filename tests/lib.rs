@@ -214,7 +214,7 @@ fn test_client_server() {
         }
     }
 
-    impl<'a> client::Connection for &'a MockConnection {
+    impl client::Connection for MockConnection {
         type Error = String;
         type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
         type StateFuture = Box<Future<Item = State, Error = Self::Error>>;
@@ -236,14 +236,14 @@ fn test_client_server() {
 
     let server = Rc::new(RefCell::new(Server::new()));
 
-    let connection1 = MockConnection(server.clone());
-    let connection2 = MockConnection(server.clone());
+    let mut connection1 = MockConnection(server.clone());
+    let mut connection2 = MockConnection(server.clone());
 
     server.borrow_mut().connect(Box::new(&connection1));
     server.borrow_mut().connect(Box::new(&connection2));
 
-    let mut client1 = block_on(Client::with_connection(Box::new(&connection1))).unwrap();
-    let mut client2 = block_on(Client::with_connection(Box::new(&connection2))).unwrap();
+    let mut client1 = block_on(Client::with_connection(&mut connection1)).unwrap();
+    let mut client2 = block_on(Client::with_connection(&mut connection2)).unwrap();
 
     assert_eq!(client1.current_content().unwrap(), "");
     assert_eq!(client2.current_content().unwrap(), "");
