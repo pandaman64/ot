@@ -139,18 +139,21 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
     }
 
     fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, new_state: State) -> Result<(), ClientError<'a, C::Error>> {
-        if base_state.id == new_state.parent {
-            if let Some(current) = std::mem::replace(current_diff, None) {
+        if let Some(current) = std::mem::replace(current_diff, None) {
+            if base_state.id == new_state.parent {
                 *current_diff = Some(transform(current, new_state.diff).0);
+            } else {
+                *current_diff = Some(current);
+                return Err(ClientError::OutOfDate);
             }
-            *base_state = ClientState {
-                id: new_state.id,
-                content: new_state.content,
-            };
-            Ok(())
-        } else {
-            Err(ClientError::OutOfDate)
         }
+
+        *base_state = ClientState {
+            id: new_state.id,
+            content: new_state.content,
+        };
+
+        Ok(())
     }
 
     pub fn update<'a>(&'a mut self) -> Box<Future<Item = (), Error = ClientError<'a, C::Error>> + 'a> {
