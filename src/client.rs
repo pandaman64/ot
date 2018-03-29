@@ -13,6 +13,7 @@ pub trait Connection {
     type StateFuture: Future<Item = State, Error = Self::Error>;
 
     fn get_latest_state(&self) -> Self::StateFuture;
+    fn get_patch_since(&self, since_id: &Id) -> Self::Output;
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
@@ -138,19 +139,18 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
         }))
     }
 
-    fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, new_state: State) -> Result<(), ClientError<'a, C::Error>> {
+    fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, latest_id: Id, diff: Operation) -> Result<(), ClientError<'a, C::Error>> {
+        let content;
         if let Some(current) = std::mem::replace(current_diff, None) {
-            if base_state.id == new_state.parent {
-                *current_diff = Some(transform(current, new_state.diff).0);
-            } else {
-                *current_diff = Some(current);
-                return Err(ClientError::OutOfDate);
-            }
+            let (current, _) = transform(current, diff.clone());
+            content = apply(&base_state.content, &compose(diff, current));
+        } else {
+            content = apply(&base_state.content, &diff);
         }
 
         *base_state = ClientState {
-            id: new_state.id,
-            content: new_state.content,
+            id: latest_id,
+            content: content,
         };
 
         Ok(())
@@ -169,9 +169,9 @@ impl<'c, C: Connection + 'c> Client<'c, C> {
                 ref mut current_diff,
                 ref mut connection,
             } => {
-                Box::new(connection.get_latest_state()
+                Box::new(connection.get_patch_since(&base_state.id)
                     .map_err(ConnectionError) // should we change self to Error?
-                    .and_then(move |state| Self::patch(base_state, current_diff, state)))
+                    .and_then(move |(latest_id, diff)| Self::patch(base_state, current_diff, latest_id, diff)))
             },
         }
     }

@@ -226,6 +226,13 @@ fn test_client_server() {
             Box::new(ok(server.current_state().clone()))
         }
 
+        fn get_patch_since(&self, since_id: &Id) -> Self::Output {
+            use futures::future::result;
+
+            let server = self.0.borrow();
+            Box::new(result(server.get_patch(since_id)))
+        }
+
         fn send_operation(&self, parent: Id, op: Operation) -> Self::Output {
             use futures::future::result;
 
