@@ -27,6 +27,25 @@ impl Server {
         }
     }
 
+    pub fn get_patch(&self, since_id: &Id) -> Result<(Id, Operation), String> {
+        if self.history.len() <= since_id.0 {
+            Err("index out of range".into())
+        } else {
+            let parent_id = Id(self.history.len() - 1);
+            let mut op = {
+                let mut op = Operation::new();
+                op.retain(self.history[since_id.0].diff.target_len());
+                op
+            };
+
+            for state in self.history.iter().skip(since_id.0 + 1) {
+                op = compose(op, state.diff.clone());
+            }
+
+            Ok((parent_id, op))
+        }
+    }
+
     pub fn current_state(&self) -> &State {
         self.history.last().unwrap()
     }
@@ -37,33 +56,20 @@ impl Server {
     }
 
     pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Operation), String> {
-        if self.history.len() <= parent.0 {
-            Err("index out of range".into())
-        } else {
-            let parent_id = Id(self.history.len() - 1);
-            let id = Id(self.history.len());
-            let mut server_op = {
-                let mut op = Operation::new();
-                op.retain(self.history[parent.0].diff.target_len());
-                op
-            };
+        let (parent_id, server_op) = self.get_patch(&parent)?;
 
-            for state in self.history.iter().skip(parent.0 + 1) {
-                server_op = compose(server_op, state.diff.clone());
-            }
+        let (server_diff, client_diff) = transform(operation, server_op.clone());
+        let content_source = self.history[parent.0].content.clone(); 
 
-            let (server_diff, client_diff) = transform(operation, server_op.clone());
-            let content_source = self.history[parent.0].content.clone(); 
+        let id = Id(self.history.len());
+        self.history.push(State {
+            parent: parent_id.clone(),
+            id: id.clone(),
+            content: apply(&content_source, &compose(server_op, server_diff.clone())),
+            diff: server_diff,
+        });
 
-            self.history.push(State {
-                parent: parent_id.clone(),
-                id: id.clone(),
-                content: apply(&content_source, &compose(server_op, server_diff.clone())),
-                diff: server_diff,
-            });
-
-            Ok((id, client_diff))
-        }
+        Ok((id, client_diff))
     }
 }
 
