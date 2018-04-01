@@ -17,7 +17,7 @@ pub trait Connection {
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientState {
     id: Id,
     content: String,

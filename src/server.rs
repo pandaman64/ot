@@ -6,6 +6,7 @@ pub trait Connection {
     fn send_state(&mut self, state: &State);
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Server {
     history: Vec<State>,
     //connections: Vec<Box<Connection>>,
