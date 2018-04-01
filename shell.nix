@@ -1,8 +1,9 @@
 with import <nixpkgs> {};
 stdenv.mkDerivation {
-  name = "satysfi-playground";
+  name = "ot";
   buildInputs = [
     latest.rustChannels.stable.rust
+    bashInteractive
   ];
 }
 
