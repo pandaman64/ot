@@ -5,7 +5,6 @@ use util::*;
 extern crate futures;
 
 use self::futures::Future;
-use self::futures::FutureExt;
 
 pub trait Connection {
     type Error;

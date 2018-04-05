@@ -200,7 +200,6 @@ fn test_client_server() {
     use std::cell::RefCell;
 
     use self::futures::Future;
-    use self::futures::executor::block_on;
 
     use ot::*;
     use ot::util::*;
@@ -249,8 +248,8 @@ fn test_client_server() {
     server.borrow_mut().connect(Box::new(&connection1));
     server.borrow_mut().connect(Box::new(&connection2));
 
-    let mut client1 = block_on(Client::with_connection(&mut connection1)).unwrap();
-    let mut client2 = block_on(Client::with_connection(&mut connection2)).unwrap();
+    let mut client1 = Client::with_connection(&mut connection1).wait().unwrap();
+    let mut client2 = Client::with_connection(&mut connection2).wait().unwrap();
 
     assert_eq!(client1.current_content().unwrap(), "");
     assert_eq!(client2.current_content().unwrap(), "");
@@ -262,7 +261,7 @@ fn test_client_server() {
     });
     {
         let future = client1.send_to_server().unwrap();
-        block_on(client1.apply_response(future)).unwrap();
+        client1.apply_response(future).wait().unwrap();
     }
 
     assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
@@ -275,7 +274,7 @@ fn test_client_server() {
     });
     {
         let future = client2.send_to_server().unwrap();
-        block_on(client2.apply_response(future)).unwrap();
+        client2.apply_response(future).wait().unwrap();
     }
 
     assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
@@ -290,13 +289,13 @@ fn test_client_server() {
     });
     {
         let future = client1.send_to_server().unwrap();
-        block_on(client1.apply_response(future)).unwrap();
+        client1.apply_response(future).wait().unwrap();
     }
 
     assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
     assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
     
-    block_on(client2.update()).unwrap();
+    client2.update().wait().unwrap();
 
     assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
     assert_eq!(client2.current_content().unwrap(), "!さようなら 世界");
