@@ -242,14 +242,14 @@ fn test_client_server() {
 
     let server = Rc::new(RefCell::new(Server::new()));
 
-    let mut connection1 = MockConnection(server.clone());
-    let mut connection2 = MockConnection(server.clone());
+    let connection1 = MockConnection(server.clone());
+    let connection2 = MockConnection(server.clone());
 
     server.borrow_mut().connect(Box::new(&connection1));
     server.borrow_mut().connect(Box::new(&connection2));
 
-    let mut client1 = Client::with_connection(&mut connection1).wait().unwrap();
-    let mut client2 = Client::with_connection(&mut connection2).wait().unwrap();
+    let mut client1 = Client::with_connection(&connection1).wait().unwrap();
+    let mut client2 = Client::with_connection(&connection2).wait().unwrap();
 
     assert_eq!(client1.current_content().unwrap(), "");
     assert_eq!(client2.current_content().unwrap(), "");

@@ -35,18 +35,18 @@ pub enum Client<'c, C: Connection + 'c> {
         base_state: ClientState,
         sent_diff: Operation,
         current_diff: Option<Operation>,
-        connection: &'c mut C,
+        connection: &'c C,
     },
     Buffering {
         base_state: ClientState,
         current_diff: Option<Operation>,
-        connection: &'c mut C,
+        connection: &'c C,
     },
     Error(String),
 }
 
 impl<'c, C: Connection + 'c> Client<'c, C> {
-    pub fn with_connection(connection: &'c mut C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
+    pub fn with_connection(connection: &'c C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
         Box::new(connection.get_latest_state()
             .map(move |state| 
                 Client::Buffering {
