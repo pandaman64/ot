@@ -8,7 +8,7 @@ pub mod server;
 pub mod client;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PrimitiveOperation {
+enum PrimitiveOperation {
     // skip n bytes of string
     Retain(usize),
     // insert a string
@@ -19,11 +19,11 @@ pub enum PrimitiveOperation {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operation {
-    pub operations: Vec<PrimitiveOperation>,
+    operations: Vec<PrimitiveOperation>,
     // the length of the original string, in bytes
-    pub source_len: usize,
+    source_len: usize,
     // the length of the applied string, in bytes
-    pub target_len: usize,
+    target_len: usize,
 }
 
 impl Operation {
