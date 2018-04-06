@@ -295,7 +295,10 @@ fn test_client_server() {
     assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
     assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
     
-    client2.update().wait().unwrap();
+    {
+        let (latest_id, diff) = client2.send_get_patch().wait().unwrap();
+        client2.apply_patch(latest_id, diff).unwrap();
+    }
 
     assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
     assert_eq!(client2.current_content().unwrap(), "!さようなら 世界");

@@ -150,7 +150,6 @@ impl<'c, C: Connection + 'c> Client<C> {
         }
     }
 
-    // this should be impl Future
     pub fn apply_response(&mut self, id: Id, op: Operation) -> Result<(), C::Error> {
         use self::Client::*;
         match std::mem::replace(self, Error("".into())) {
@@ -191,7 +190,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         Ok(())
     }
 
-    pub fn update<'a>(&'a mut self) -> Box<Future<Item = (), Error = ClientError<'a, C::Error>> + 'a> {
+    pub fn send_get_patch<'a>(&'a self) -> Box<Future<Item = (Id, Operation), Error = ClientError<'a, C::Error>> + 'a> {
         use self::Client::*;
         use self::ClientError::*;
         use self::futures::future::err;
@@ -200,14 +199,28 @@ impl<'c, C: Connection + 'c> Client<C> {
             Error(ref s) => Box::new(err(NotConnected(s))),
             WaitingForResponse { .. } => Box::new(err(Syncing)),
             Buffering {
-                ref mut base_state,
-                ref mut current_diff,
-                ref mut connection,
+                ref base_state,
+                ref connection, 
+                ..
             } => {
                 Box::new(connection.get_patch_since(&base_state.id)
-                    .map_err(ConnectionError) // should we change self to Error?
-                    .and_then(move |(latest_id, diff)| Self::patch(base_state, current_diff, latest_id, diff)))
+                    .map_err(ConnectionError)) // should we change self to Error?
             },
+        }
+    }
+
+    pub fn apply_patch<'a>(&'a mut self, latest_id: Id, diff: Operation) -> Result<(), ClientError<'a, C::Error>> {
+        use self::Client::*;
+        use self::ClientError::*;
+
+        match *self {
+            Error(ref s) => Err(NotConnected(s)),
+            WaitingForResponse { .. } => Err(Syncing),
+            Buffering {
+                ref mut base_state,
+                ref mut current_diff,
+                ..
+            } => Self::patch(base_state, current_diff, latest_id, diff),
         }
     }
 }
