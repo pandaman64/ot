@@ -16,6 +16,24 @@ pub trait Connection {
     fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
 }
 
+impl<C: Connection + ?Sized> Connection for Box<C> {
+    type Error = C::Error;
+    type Output = C::Output;
+    type StateFuture = C::StateFuture;
+
+    fn get_latest_state(&self) -> Self::StateFuture {
+        (**self).get_latest_state()
+    }
+
+    fn get_patch_since(&self, since_id: &Id) -> Self::Output {
+        (**self).get_patch_since(since_id)
+    }
+
+    fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output {
+        (**self).send_operation(base_id, operation)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientState {
     id: Id,
