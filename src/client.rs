@@ -2,14 +2,16 @@
 use super::*;
 use util::*;
 
-extern crate futures;
+extern crate failure;
+use failure::{Error, Fail};
 
+extern crate futures;
 use self::futures::Future;
 
 pub trait Connection {
-    type Error;
-    type Output: Future<Item = (Id, Operation), Error = Self::Error>;
-    type StateFuture: Future<Item = State, Error = Self::Error>;
+    type Error: Fail;
+    type Output: Future<Item = (Id, Operation), Error = Self::Error> + 'static;
+    type StateFuture: Future<Item = State, Error = Self::Error> + 'static;
 
     fn get_latest_state(&self) -> Self::StateFuture;
     fn get_patch_since(&self, since_id: &Id) -> Self::Output;
@@ -58,12 +60,16 @@ pub struct ClientState {
     content: String,
 }
 
-#[derive(Debug)]
-pub enum ClientError<'a, E> {
-    ConnectionError(E),
+#[derive(Debug, Fail)]
+pub enum ClientError {
+    #[fail(display = "Error occured in connection: {}", _0)]
+    ConnectionError(Error),
+    #[fail(display = "Out of date")]
     OutOfDate,
+    #[fail(display = "Invalid operation on syncing state")]
     Syncing,
-    NotConnected(&'a str),
+    #[fail(display = "Client not connected any more: {}", _0)]
+    NotConnected(String),
 }
 
 pub enum Client<C: Connection> {
@@ -173,7 +179,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         }
     }
 
-    fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, latest_id: Id, diff: Operation) -> Result<(), ClientError<'a, C::Error>> {
+    fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
         let content;
         if let Some(current) = std::mem::replace(current_diff, None) {
             let (current, _) = transform(current, diff.clone());
@@ -190,13 +196,13 @@ impl<'c, C: Connection + 'c> Client<C> {
         Ok(())
     }
 
-    pub fn send_get_patch<'a>(&'a self) -> Box<Future<Item = (Id, Operation), Error = ClientError<'a, C::Error>> + 'a> {
+    pub fn send_get_patch(&self) -> Box<Future<Item = (Id, Operation), Error = ClientError>> {
         use self::Client::*;
         use self::ClientError::*;
         use self::futures::future::err;
 
         match *self {
-            Error(ref s) => Box::new(err(NotConnected(s))),
+            Error(ref s) => Box::new(err(NotConnected(s.clone()))),
             WaitingForResponse { .. } => Box::new(err(Syncing)),
             Buffering {
                 ref base_state,
@@ -204,17 +210,18 @@ impl<'c, C: Connection + 'c> Client<C> {
                 ..
             } => {
                 Box::new(connection.get_patch_since(&base_state.id)
+                    .map_err(Into::into)
                     .map_err(ConnectionError)) // should we change self to Error?
             },
         }
     }
 
-    pub fn apply_patch<'a>(&'a mut self, latest_id: Id, diff: Operation) -> Result<(), ClientError<'a, C::Error>> {
+    pub fn apply_patch(&mut self, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
         use self::Client::*;
         use self::ClientError::*;
 
         match *self {
-            Error(ref s) => Err(NotConnected(s)),
+            Error(ref s) => Err(NotConnected(s.clone())),
             WaitingForResponse { .. } => Err(Syncing),
             Buffering {
                 ref mut base_state,

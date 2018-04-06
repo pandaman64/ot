@@ -192,6 +192,8 @@ fn fuzz_test_transform() {
     }
 }
 
+#[macro_use]
+extern crate failure;
 extern crate futures;
 
 #[test]
@@ -213,8 +215,18 @@ fn test_client_server() {
         }
     }
 
+    #[derive(Debug, Fail)]
+    #[fail(display = "error: {}", _0)]
+    struct MockConnectionError(String);
+
+    impl From<String> for MockConnectionError {
+        fn from(s: String) -> Self {
+            MockConnectionError(s)
+        }
+    }
+
     impl client::Connection for MockConnection {
-        type Error = String;
+        type Error = MockConnectionError;
         type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
         type StateFuture = Box<Future<Item = State, Error = Self::Error>>;
 
@@ -229,14 +241,14 @@ fn test_client_server() {
             use futures::future::result;
 
             let server = self.0.borrow();
-            Box::new(result(server.get_patch(since_id)))
+            Box::new(result(server.get_patch(since_id).map_err(Into::into)))
         }
 
         fn send_operation(&self, parent: Id, op: Operation) -> Self::Output {
             use futures::future::result;
 
             let mut server = self.0.borrow_mut();
-            Box::new(result(server.modify(parent, op)))
+            Box::new(result(server.modify(parent, op).map_err(Into::into)))
         }
     }
 
