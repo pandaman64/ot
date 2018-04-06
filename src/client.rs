@@ -151,27 +151,27 @@ impl<'c, C: Connection + 'c> Client<C> {
     }
 
     // this should be impl Future
-    pub fn apply_response<'a>(&'a mut self, response: C::Output) -> Box<Future<Item = (), Error = C::Error> + 'a> {
-        Box::new(response.map(move |(id, op)| {
-            use self::Client::*;
-            match std::mem::replace(self, Error("".into())) {
-                WaitingForResponse {
-                    base_state, sent_diff, current_diff, connection, 
-                } => {
-                    let content = apply(&base_state.content, &compose(sent_diff, op.clone()));
+    pub fn apply_response(&mut self, id: Id, op: Operation) -> Result<(), C::Error> {
+        use self::Client::*;
+        match std::mem::replace(self, Error("".into())) {
+            WaitingForResponse {
+                base_state, sent_diff, current_diff, connection, 
+            } => {
+                let content = apply(&base_state.content, &compose(sent_diff, op.clone()));
 
-                    *self = Buffering {
-                        current_diff: current_diff.map(|diff| transform(diff, op).0),
-                        base_state: ClientState {
-                            id: id,
-                            content: content,
-                        },
-                        connection: connection,
-                    };
-                },
-                _ => unreachable!()
-            }
-        }))
+                *self = Buffering {
+                    current_diff: current_diff.map(|diff| transform(diff, op).0),
+                    base_state: ClientState {
+                        id: id,
+                        content: content,
+                    },
+                    connection: connection,
+                };
+
+                Ok(())
+            },
+            _ => unreachable!()
+        }
     }
 
     fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, latest_id: Id, diff: Operation) -> Result<(), ClientError<'a, C::Error>> {

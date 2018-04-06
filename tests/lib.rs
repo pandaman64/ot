@@ -260,8 +260,8 @@ fn test_client_server() {
         op
     });
     {
-        let future = client1.send_to_server().unwrap();
-        client1.apply_response(future).wait().unwrap();
+        let (id, op) = client1.send_to_server().unwrap().wait().unwrap();
+        client1.apply_response(id, op).unwrap();
     }
 
     assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
@@ -273,8 +273,8 @@ fn test_client_server() {
         op
     });
     {
-        let future = client2.send_to_server().unwrap();
-        client2.apply_response(future).wait().unwrap();
+        let (id, op) = client2.send_to_server().unwrap().wait().unwrap();
+        client2.apply_response(id, op).unwrap();
     }
 
     assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
@@ -288,8 +288,8 @@ fn test_client_server() {
         op
     });
     {
-        let future = client1.send_to_server().unwrap();
-        client1.apply_response(future).wait().unwrap();
+        let (id, op) = client1.send_to_server().unwrap().wait().unwrap();
+        client1.apply_response(id, op).unwrap();
     }
 
     assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
