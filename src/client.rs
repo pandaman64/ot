@@ -34,6 +34,24 @@ impl<C: Connection + ?Sized> Connection for Box<C> {
     }
 }
 
+impl<'c, C: Connection + ?Sized + 'c> Connection for &'c C {
+    type Error = C::Error;
+    type Output = C::Output;
+    type StateFuture = C::StateFuture;
+
+    fn get_latest_state(&self) -> Self::StateFuture {
+        (*self).get_latest_state()
+    }
+
+    fn get_patch_since(&self, since_id: &Id) -> Self::Output {
+        (*self).get_patch_since(since_id)
+    }
+
+    fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output {
+        (*self).send_operation(base_id, operation)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientState {
     id: Id,
@@ -48,23 +66,23 @@ pub enum ClientError<'a, E> {
     NotConnected(&'a str),
 }
 
-pub enum Client<'c, C: Connection + 'c> {
+pub enum Client<C: Connection> {
     WaitingForResponse {
         base_state: ClientState,
         sent_diff: Operation,
         current_diff: Option<Operation>,
-        connection: &'c C,
+        connection: C,
     },
     Buffering {
         base_state: ClientState,
         current_diff: Option<Operation>,
-        connection: &'c C,
+        connection: C,
     },
     Error(String),
 }
 
-impl<'c, C: Connection + 'c> Client<'c, C> {
-    pub fn with_connection(connection: &'c C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
+impl<'c, C: Connection + 'c> Client<C> {
+    pub fn with_connection(connection: C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
         Box::new(connection.get_latest_state()
             .map(move |state| 
                 Client::Buffering {
