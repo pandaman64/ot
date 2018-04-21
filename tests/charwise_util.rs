@@ -1,5 +1,5 @@
 extern crate ot;
-use ot::*;
+use ot::charwise::*;
 
 extern crate rand;
 

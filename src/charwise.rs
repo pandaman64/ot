@@ -1,15 +1,21 @@
+// This source code is essentially a rewrite of https://github.com/hackmdio/hackmd/blob/master/lib/ot/text-operation.js
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum LineOperation {
+enum PrimitiveOperation {
+    // skip n bytes of string
     Retain(usize),
+    // insert a string
     Insert(String),
-    Modify(super::charwise::Operation),
+    // delete next n bytes
     Delete(usize),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operation {
-    operations: Vec<LineOperation>,
+    operations: Vec<PrimitiveOperation>,
+    // the length of the original string, in bytes
     source_len: usize,
+    // the length of the applied string, in bytes
     target_len: usize,
 }
 
@@ -30,8 +36,8 @@ impl Operation {
         self.target_len
     }
 
-    pub fn add(&mut self, op: LineOperation) {
-        use self::LineOperation::*;
+    fn add(&mut self, op: PrimitiveOperation) {
+        use self::PrimitiveOperation::*;
         match op {
             Retain(len) => {
                 self.source_len += len;
@@ -42,6 +48,14 @@ impl Operation {
                 }
                 self.operations.push(Retain(len));
             }
+            Insert(s) => {
+                self.target_len += s.len();
+                if let Some(&mut Insert(ref mut ss)) = self.operations.last_mut() {
+                    ss.push_str(&s);
+                    return;
+                }
+                self.operations.push(Insert(s));
+            }
             Delete(len) => {
                 self.source_len += len;
                 if let Some(&mut Delete(ref mut l)) = self.operations.last_mut() {
@@ -50,68 +64,49 @@ impl Operation {
                 }
                 self.operations.push(Delete(len));
             }
-            Modify(op) => {
-                self.source_len += 1;
-                self.target_len += 1;
-                self.operations.push(Modify(op));
-            }
-            Insert(s) => {
-                self.target_len += 1;
-                self.operations.push(Insert(s));
-            }
         }
     }
 
+    // NOTE: len is in bytes
     pub fn retain(&mut self, len: usize) -> &mut Self {
         if len > 0 {
-            self.add(LineOperation::Retain(len));
+            self.add(PrimitiveOperation::Retain(len));
         }
         self
     }
 
     pub fn insert(&mut self, s: String) -> &mut Self {
-        self.add(LineOperation::Insert(s));
-        self
-    }
-
-    pub fn delete(&mut self, len: usize) -> &mut Self {
-        if len > 0 {
-            self.add(LineOperation::Delete(len));
+        if s.len() > 0 {
+            self.add(PrimitiveOperation::Insert(s));
         }
         self
     }
 
-    pub fn modify(&mut self, op: super::charwise::Operation) -> &mut Self {
-        self.add(LineOperation::Modify(op));
+    // NOTE: len is in bytes
+    pub fn delete(&mut self, len: usize) -> &mut Self {
+        if len > 0 {
+            self.add(PrimitiveOperation::Delete(len));
+        }
         self
     }
 }
 
-// apply operation to lines
-pub fn apply(mut original: &[&str], operation: &Operation) -> Vec<String> {
-    assert_eq!(original.len(), operation.source_len);
+// apply operation to string
+pub fn apply(mut original: &str, operation: &Operation) -> String {
+    let mut ret = String::with_capacity(operation.target_len);
 
-    let mut ret = Vec::with_capacity(operation.target_len);
+    assert_eq!(original.len(), operation.source_len, "the length of string {} and the source length of operation {:?} must match", original, operation);
 
     for op in operation.operations.iter() {
-        use self::LineOperation::*;
-
+        use self::PrimitiveOperation::*;
         match *op {
             Retain(len) => {
-                for i in 0..len {
-                    ret.push(original[i].to_string());
-                }
+                ret.push_str(&original[0..len]);
                 original = &original[len..];
             }
+            Insert(ref s) => ret.push_str(s),
             Delete(len) => {
                 original = &original[len..];
-            }
-            Insert(ref s) => {
-                ret.push(s.to_string());
-            }
-            Modify(ref op) => {
-                ret.push(super::charwise::apply(original[0], op));
-                original = &original[1..];
             }
         }
     }
@@ -133,19 +128,19 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
     let mut head_second = second.next();
 
     loop {
-        use self::LineOperation::*;
+        use self::PrimitiveOperation::*;
 
         match (head_first, head_second) {
             (None, None) => break ret,
-            (None, Some(value)) => {
+            (None, value) => {
                 head_first = None;
                 head_second = second.next();
-                ret.add(value);
+                ret.add(value.unwrap());
             },
-            (Some(value), None) => {
+            (value, None) => {
                 head_first = first.next();
                 head_second = None;
-                ret.add(value);
+                ret.add(value.unwrap());
             },
             (Some(Delete(len)), s) => {
                 head_first = first.next();
@@ -187,70 +182,31 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
                     ret.delete(len_second);
                 }
             },
-            (Some(Retain(len)), Some(Modify(op))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
+            (Some(Insert(mut s)), Some(Delete(len))) => {
+                if s.len() < len {
                     head_first = first.next();
-                } else {
-                    head_first = Some(Retain(len - 1));
-                }
-                head_second = second.next();
-                ret.modify(op);
-            }
-            (Some(Insert(_)), Some(Delete(len))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
+                    head_second = Some(Delete(len - s.len()));
+                } else if s.len() == len {
+                    head_first = first.next();
                     head_second = second.next();
                 } else {
-                    head_second = Some(Delete(len - 1));
+                    head_first = Some(Insert(s.split_off(len)));
+                    head_second = second.next();
                 }
-                head_first = first.next();
             },
-            (Some(Insert(s)), Some(Retain(len))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
+            (Some(Insert(mut s)), Some(Retain(len))) => {
+                if s.len() < len {
+                    head_first = first.next();
+                    head_second = Some(Retain(len - s.len()));
+                } else if s.len() == len {
+                    head_first = first.next();
                     head_second = second.next();
                 } else {
-                    head_second = Some(Retain(len - 1));
+                    head_first = Some(Insert(s.split_off(len)));
+                    head_second = second.next();
                 }
-                head_first = first.next();
                 ret.insert(s);
             },
-            (Some(Insert(s)), Some(Modify(op))) => {
-                head_first = first.next();
-                head_second = second.next();
-                ret.insert(super::charwise::apply(&s, &op));
-            },
-            (Some(Modify(op)), Some(Retain(len))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
-                    head_second = second.next();
-                } else {
-                    head_second = Some(Retain(len - 1));
-                }
-                head_first = first.next();
-                ret.modify(op);
-            },
-            (Some(Modify(_)), Some(Delete(len))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
-                    head_second = second.next();
-                } else {
-                    head_second = Some(Delete(len - 1));
-                }
-                head_first = first.next();
-                ret.delete(1);
-            },
-            (Some(Modify(lhs)), Some(Modify(rhs))) => {
-                head_first = first.next();
-                head_second = second.next();
-                ret.modify(super::charwise::compose(lhs, rhs));
-            }
         }
     }
 }
@@ -271,18 +227,18 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
     let mut head_right = right.next();
 
     loop {
-        use self::LineOperation::*;
+        use self::PrimitiveOperation::*;
 
         match (head_left, head_right) {
             (None, None) => break (ret_left, ret_right),
             (Some(Insert(s)), value) => {
-                ret_right.retain(1);
+                ret_right.retain(s.len());
                 ret_left.insert(s);
                 head_left = left.next();
                 head_right = value;
             },
             (value, Some(Insert(s))) => {
-                ret_left.retain(1);
+                ret_left.retain(s.len());
                 ret_right.insert(s);
                 head_left = value;
                 head_right = right.next();
@@ -319,13 +275,6 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                     head_right = right.next();
                 }
             },
-            (Some(Modify(left_op)), Some(Modify(right_op))) => {
-                head_left = left.next();
-                head_right = right.next();
-                let (left_op, right_op) = super::charwise::transform(left_op, right_op);
-                ret_left.modify(left_op);
-                ret_right.modify(right_op);
-            },
             (Some(Retain(left_len)), Some(Delete(right_len))) => {
                 let len;
                 if left_len < right_len {
@@ -360,53 +309,6 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
                 }
                 ret_left.delete(len);
             },
-            (Some(Modify(op)), Some(Retain(len))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
-                    head_right = right.next();
-                } else {
-                    head_right = Some(Retain(len - 1));
-                }
-                head_left = left.next();
-                ret_left.modify(op);
-                ret_right.retain(1);
-            },
-            (Some(Retain(len)), Some(Modify(op))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
-                    head_left = left.next();
-                } else {
-                    head_left = Some(Retain(len - 1));
-                }
-                head_right = right.next();
-                ret_left.retain(1);
-                ret_right.modify(op);
-            },
-            (Some(Modify(_)), Some(Delete(len))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
-                    head_right = right.next();
-                } else {
-                    head_right = Some(Delete(len - 1));
-                }
-                head_left = left.next();
-                ret_right.delete(1);
-            },
-            (Some(Delete(len)), Some(Modify(_))) => {
-                if len == 0 {
-                    unreachable!("length cannot be zero");
-                } else if len == 1 {
-                    head_left = left.next();
-                } else {
-                    head_left = Some(Delete(len - 1));
-                } 
-                head_right = right.next();
-                ret_left.delete(1);
-            },
         }
     }
 }
-

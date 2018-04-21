@@ -1,6 +1,7 @@
 
 use super::*;
 use util::*;
+use super::charwise::{apply, compose, transform, Operation};
 
 extern crate failure;
 use failure::{Error, Fail};

@@ -13,7 +13,7 @@ fn test_apply() {
         op.retain(1)
             .insert("!".into())
             .modify({
-                let mut op = ot::Operation::new();
+                let mut op = ot::charwise::Operation::new();
                 op.delete("世界".len());
                 op.insert("社会".into());
                 op
@@ -32,7 +32,7 @@ fn test_compose() {
         op.retain(1)
             .insert("!".into())
             .modify({
-                let mut op = ot::Operation::new();
+                let mut op = ot::charwise::Operation::new();
                 op.delete("世界".len());
                 op.insert("社会".into());
                 op
@@ -70,7 +70,7 @@ fn test_transform() {
         op.retain(1)
             .insert("!".into())
             .modify({
-                let mut op = ot::Operation::new();
+                let mut op = ot::charwise::Operation::new();
                 op.delete("世界".len());
                 op.insert("社会".into());
                 op

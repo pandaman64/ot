@@ -1,5 +1,5 @@
 extern crate ot;
-use ot::*;
+use ot::charwise::*;
 
 mod charwise_util;
 use charwise_util::*;
