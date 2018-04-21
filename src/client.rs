@@ -64,8 +64,6 @@ pub struct ClientState {
 pub enum ClientError {
     #[fail(display = "Error occured in connection: {}", _0)]
     ConnectionError(Error),
-    #[fail(display = "Out of date")]
-    OutOfDate,
     #[fail(display = "Invalid operation on syncing state")]
     Syncing,
     #[fail(display = "Client not connected any more: {}", _0)]
@@ -156,6 +154,40 @@ impl<'c, C: Connection + 'c> Client<C> {
         }
     }
 
+    pub fn apply_patch(&mut self, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
+        use self::Client::*;
+        use self::ClientError::*;
+
+        match std::mem::replace(self, Error("".into())) {
+            Error(ref s) => Err(NotConnected(s.clone())),
+            WaitingForResponse {
+                base_state, sent_diff, current_diff, connection, 
+            } => {
+                let content = apply(&base_state.content, &compose(sent_diff, diff.clone()));
+
+                *self = Buffering {
+                    current_diff: current_diff.map(|current| transform(current, diff).0),
+                    base_state: ClientState {
+                        id: latest_id,
+                        content: content,
+                    },
+                    connection: connection,
+                };
+
+                Ok(())
+            },
+            Buffering {
+                mut base_state,
+                mut current_diff,
+                connection, 
+            } => {
+                Self::patch(&mut base_state, &mut current_diff, latest_id, diff)?;
+                *self = Buffering { base_state, current_diff, connection };
+                Ok(())
+            },
+        }
+    }
+
     pub fn apply_response(&mut self, id: Id, op: Operation) -> Result<(), C::Error> {
         use self::Client::*;
         match std::mem::replace(self, Error("".into())) {
@@ -213,21 +245,6 @@ impl<'c, C: Connection + 'c> Client<C> {
                     .map_err(Into::into)
                     .map_err(ConnectionError)) // should we change self to Error?
             },
-        }
-    }
-
-    pub fn apply_patch(&mut self, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
-        use self::Client::*;
-        use self::ClientError::*;
-
-        match *self {
-            Error(ref s) => Err(NotConnected(s.clone())),
-            WaitingForResponse { .. } => Err(Syncing),
-            Buffering {
-                ref mut base_state,
-                ref mut current_diff,
-                ..
-            } => Self::patch(base_state, current_diff, latest_id, diff),
         }
     }
 }
