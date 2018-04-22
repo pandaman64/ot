@@ -1,5 +1,6 @@
 extern crate ot;
 use ot::linewise::*;
+use ot::Operation as OperationTrait;
 
 mod charwise_util;
 
@@ -7,7 +8,7 @@ extern crate rand;
 
 #[test]
 fn test_apply() {
-    let original = ["こんにちは".into(), "世界".into()];
+    let original = vec!["こんにちは".into(), "世界".into()];
     let op = {
         let mut op = Operation::new();
         op.retain(1)
@@ -21,12 +22,12 @@ fn test_apply() {
         op
     };
 
-    assert_eq!(apply(&original, &op), ["こんにちは", "!", "社会"]);
+    assert_eq!(op.apply(&original), ["こんにちは", "!", "社会"]);
 }
 
 #[test]
 fn test_compose() {
-    let original = ["こんにちは".into(),  "世界".into()];
+    let original = vec!["こんにちは".into(),  "世界".into()];
     let first = {
         let mut op = Operation::new();
         op.retain(1)
@@ -48,22 +49,22 @@ fn test_compose() {
     };
 
     assert_eq!(
-        apply(&apply(&original, &first), &second),
-        apply(&original, &compose(first.clone(), second.clone()))
+        second.apply(&first.apply(&original)),
+        first.clone().compose(second.clone()).apply(&original)
     );
     assert_eq!(
-        apply(&apply(&original, &first), &second),
+        second.apply(&first.apply(&original)),
         ["さようなら", "!", "社会"]
     );
     assert_eq!(
-        apply(&original, &compose(first, second)),
+        first.compose(second).apply(&original),
         ["さようなら", "!", "社会"]
     );
 }
 
 #[test]
 fn test_transform() {
-    let original = ["こんにちは".into(), "世界".into()];
+    let original = vec!["こんにちは".into(), "世界".into()];
     let left = {
         let mut op = Operation::new();
         op.retain(1)
@@ -84,16 +85,16 @@ fn test_transform() {
         op
     };
 
-    let (left_, right_) = transform(left.clone(), right.clone());
-    let composed_left = compose(left, right_);
-    let composed_right = compose(right, left_);
+    let (left_, right_) = left.clone().transform(right.clone());
+    let composed_left = left.compose(right_);
+    let composed_right = right.compose(left_);
 
     assert_eq!(
-        apply(&original, &composed_left),
-        apply(&original, &composed_right)
+        composed_left.apply(&original),
+        composed_right.apply(&original)
     );
-    assert_eq!(apply(&original, &composed_left), ["!", "さようなら", "社会"]);
-    assert_eq!(apply(&original, &composed_right), ["!", "さようなら", "社会"]);
+    assert_eq!(composed_left.apply(&original), ["!", "さようなら", "社会"]);
+    assert_eq!(composed_right.apply(&original), ["!", "さようなら", "社会"]);
 }
 
 fn random_lines<R: rand::Rng>(rng: &mut R, max_line_len: usize, line_num: usize) -> Vec<String> {
@@ -172,12 +173,12 @@ fn fuzz_test_compose() {
         let original = random_lines(&mut rng, max_line_len, original_len);
 
         let first = random_operation(&mut rng, &original);
-        let applied = apply(&original, &first);
+        let applied = first.apply(&original);
 
         let second = random_operation(&mut rng, &applied);
 
-        let double_applied = apply(&applied, &second);
-        let compose_applied = apply(&original, &compose(first, second));
+        let double_applied = second.apply(&applied);
+        let compose_applied = first.compose(second).apply(&original);
 
         assert_eq!(double_applied, compose_applied);
     }
@@ -197,12 +198,12 @@ fn fuzz_test_transform() {
         let left = random_operation(&mut rng, &original);
         let right = random_operation(&mut rng, &original);
 
-        let (left_, right_) = transform(left.clone(), right.clone());
+        let (left_, right_) = left.clone().transform(right.clone());
 
-        let left = compose(left, right_);
-        let right = compose(right, left_);
+        let left = left.compose(right_);
+        let right = right.compose(left_);
 
-        assert_eq!(apply(&original, &left), apply(&original, &right));
+        assert_eq!(left.apply(&original), right.apply(&original));
     }
 }
 /*
