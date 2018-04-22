@@ -7,7 +7,7 @@ extern crate rand;
 
 #[test]
 fn test_apply() {
-    let original = ["こんにちは", "世界"];
+    let original = ["こんにちは".into(), "世界".into()];
     let op = {
         let mut op = Operation::new();
         op.retain(1)
@@ -26,7 +26,7 @@ fn test_apply() {
 
 #[test]
 fn test_compose() {
-    let original = ["こんにちは",  "世界"];
+    let original = ["こんにちは".into(),  "世界".into()];
     let first = {
         let mut op = Operation::new();
         op.retain(1)
@@ -47,13 +47,12 @@ fn test_compose() {
         op
     };
 
-    use std::borrow::Borrow;
     assert_eq!(
-        apply(&apply(&original, &first).iter().map(Borrow::borrow).collect::<Vec<_>>(), &second),
+        apply(&apply(&original, &first), &second),
         apply(&original, &compose(first.clone(), second.clone()))
     );
     assert_eq!(
-        apply(&apply(&original, &first).iter().map(Borrow::borrow).collect::<Vec<_>>(), &second),
+        apply(&apply(&original, &first), &second),
         ["さようなら", "!", "社会"]
     );
     assert_eq!(
@@ -64,7 +63,7 @@ fn test_compose() {
 
 #[test]
 fn test_transform() {
-    let original = ["こんにちは", "世界"];
+    let original = ["こんにちは".into(), "世界".into()];
     let left = {
         let mut op = Operation::new();
         op.retain(1)
@@ -107,7 +106,7 @@ fn random_lines<R: rand::Rng>(rng: &mut R, max_line_len: usize, line_num: usize)
     }).collect()
 }
 
-fn random_operation<R: rand::Rng>(rng: &mut R, original: &[&str]) -> Operation {
+fn random_operation<R: rand::Rng>(rng: &mut R, original: &[String]) -> Operation {
     use rand::distributions::{Range, Sample};
 
     let mut op_type = Range::new(0, 4);
@@ -131,7 +130,7 @@ fn random_operation<R: rand::Rng>(rng: &mut R, original: &[&str]) -> Operation {
             }
             // Modify
             2 => {
-                ret.modify(charwise_util::random_operation(rng, original[idx]));
+                ret.modify(charwise_util::random_operation(rng, &original[idx]));
                 idx += 1;
             }
             // Delete
@@ -150,14 +149,13 @@ fn random_operation<R: rand::Rng>(rng: &mut R, original: &[&str]) -> Operation {
 #[test]
 fn test_random_operation() {
     use rand::Rng;
-    use std::borrow::Borrow;
 
     let mut rng = rand::thread_rng();
     let original_len = rng.gen_range(32, 100);
     let max_line_len = 30;
     let original = random_lines(&mut rng, max_line_len, original_len);
 
-    let operation = random_operation(&mut rng, &original.iter().map(Borrow::borrow).collect::<Vec<_>>());
+    let operation = random_operation(&mut rng, &original);
 
     assert_eq!(operation.source_len(), original.len());
 }
@@ -165,7 +163,6 @@ fn test_random_operation() {
 #[test]
 fn fuzz_test_compose() {
     use rand::Rng;
-    use std::borrow::Borrow;
 
     let mut rng = rand::thread_rng();
 
@@ -173,16 +170,13 @@ fn fuzz_test_compose() {
         let original_len = rng.gen_range(32, 100);
         let max_line_len = 30;
         let original = random_lines(&mut rng, max_line_len, original_len);
-        let original = original.iter().map(Borrow::borrow).collect::<Vec<_>>();
 
         let first = random_operation(&mut rng, &original);
         let applied = apply(&original, &first);
-        let applied = applied.iter().map(Borrow::borrow).collect::<Vec<_>>();
 
         let second = random_operation(&mut rng, &applied);
 
         let double_applied = apply(&applied, &second);
-        println!("-------------------\nfirst = {:?}\nsecond = {:?}\ncomposed = {:?}", first, second, compose(first.clone(), second.clone()));
         let compose_applied = apply(&original, &compose(first, second));
 
         assert_eq!(double_applied, compose_applied);
@@ -192,7 +186,6 @@ fn fuzz_test_compose() {
 #[test]
 fn fuzz_test_transform() {
     use rand::Rng;
-    use std::borrow::Borrow;
 
     let mut rng = rand::thread_rng();
 
@@ -200,7 +193,6 @@ fn fuzz_test_transform() {
         let original_len = rng.gen_range(32, 100);
         let max_line_len = 30;
         let original = random_lines(&mut rng, max_line_len, original_len);
-        let original = original.iter().map(Borrow::borrow).collect::<Vec<_>>();
 
         let left = random_operation(&mut rng, &original);
         let right = random_operation(&mut rng, &original);

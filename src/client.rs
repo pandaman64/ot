@@ -1,7 +1,9 @@
 
-use super::*;
+use std::mem::replace;
+
 use util::*;
-use super::charwise::{apply, compose, transform, Operation};
+use super::Operation as OperationTrait;
+use super::charwise::Operation;
 
 extern crate failure;
 use failure::{Error, Fail};
@@ -122,8 +124,8 @@ impl<'c, C: Connection + 'c> Client<C> {
             } | Buffering {
                 ref mut current_diff, ..
             } => {
-                if let Some(current) = std::mem::replace(current_diff, None) {
-                    *current_diff = Some(compose(current, operation));
+                if let Some(current) = replace(current_diff, None) {
+                    *current_diff = Some(current.compose(operation));
                 } else {
                     *current_diff = Some(operation);
                 }
@@ -135,7 +137,7 @@ impl<'c, C: Connection + 'c> Client<C> {
     pub fn send_to_server(&mut self) -> Result<C::Output, String> {
         use self::Client::*;
         if let &mut Buffering { current_diff: Some(_), .. } = self {
-            if let Buffering { base_state, current_diff, connection } = std::mem::replace(self, Error("".into())) {
+            if let Buffering { base_state, current_diff, connection } = replace(self, Error("".into())) {
                 let current_diff = current_diff.unwrap();
                 let ret = connection.send_operation(base_state.id.clone(), current_diff.clone());
                 *self = WaitingForResponse {
@@ -159,15 +161,15 @@ impl<'c, C: Connection + 'c> Client<C> {
         use self::Client::*;
         use self::ClientError::*;
 
-        match std::mem::replace(self, Error("".into())) {
+        match replace(self, Error("".into())) {
             Error(ref s) => Err(NotConnected(s.clone())),
             WaitingForResponse {
                 base_state, sent_diff, current_diff, connection, 
             } => {
-                let content = apply(&base_state.content, &compose(sent_diff, diff.clone()));
+                let content = sent_diff.compose(diff.clone()).apply(&base_state.content);
 
                 *self = Buffering {
-                    current_diff: current_diff.map(|current| transform(current, diff).0),
+                    current_diff: current_diff.map(|current| current.transform(diff).0),
                     base_state: ClientState {
                         id: latest_id,
                         content: content,
@@ -191,14 +193,14 @@ impl<'c, C: Connection + 'c> Client<C> {
 
     pub fn apply_response(&mut self, id: Id, op: Operation) -> Result<(), C::Error> {
         use self::Client::*;
-        match std::mem::replace(self, Error("".into())) {
+        match replace(self, Error("".into())) {
             WaitingForResponse {
                 base_state, sent_diff, current_diff, connection, 
             } => {
-                let content = apply(&base_state.content, &compose(sent_diff, op.clone()));
+                let content = sent_diff.compose(op.clone()).apply(&base_state.content);
 
                 *self = Buffering {
-                    current_diff: current_diff.map(|diff| transform(diff, op).0),
+                    current_diff: current_diff.map(|diff| diff.transform(op).0),
                     base_state: ClientState {
                         id: id,
                         content: content,
@@ -214,11 +216,11 @@ impl<'c, C: Connection + 'c> Client<C> {
 
     fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
         let content;
-        if let Some(current) = std::mem::replace(current_diff, None) {
-            let (current, _) = transform(current, diff.clone());
-            content = apply(&base_state.content, &compose(diff, current));
+        if let Some(current) = replace(current_diff, None) {
+            let (current, _) = current.transform(diff.clone());
+            content = diff.compose(current).apply(&base_state.content);
         } else {
-            content = apply(&base_state.content, &diff);
+            content = diff.apply(&base_state.content);
         }
 
         *base_state = ClientState {

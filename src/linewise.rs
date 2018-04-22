@@ -1,3 +1,5 @@
+use super::Operation as OperationTrait;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LineOperation {
     Retain(usize),
@@ -88,7 +90,7 @@ impl Operation {
 }
 
 // apply operation to lines
-pub fn apply(mut original: &[&str], operation: &Operation) -> Vec<String> {
+pub fn apply(mut original: &[String], operation: &Operation) -> Vec<String> {
     assert_eq!(original.len(), operation.source_len);
 
     let mut ret = Vec::with_capacity(operation.target_len);
@@ -110,7 +112,7 @@ pub fn apply(mut original: &[&str], operation: &Operation) -> Vec<String> {
                 ret.push(s.to_string());
             }
             Modify(ref op) => {
-                ret.push(super::charwise::apply(original[0], op));
+                ret.push(op.apply(&original[0]));
                 original = &original[1..];
             }
         }
@@ -222,7 +224,7 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
             (Some(Insert(s)), Some(Modify(op))) => {
                 head_first = first.next();
                 head_second = second.next();
-                ret.insert(super::charwise::apply(&s, &op));
+                ret.insert(op.apply(&s));
             },
             (Some(Modify(op)), Some(Retain(len))) => {
                 if len == 0 {
@@ -249,7 +251,7 @@ pub fn compose(first: Operation, second: Operation) -> Operation {
             (Some(Modify(lhs)), Some(Modify(rhs))) => {
                 head_first = first.next();
                 head_second = second.next();
-                ret.modify(super::charwise::compose(lhs, rhs));
+                ret.modify(lhs.compose(rhs));
             }
         }
     }
@@ -322,7 +324,7 @@ pub fn transform(left: Operation, right: Operation) -> (Operation, Operation) {
             (Some(Modify(left_op)), Some(Modify(right_op))) => {
                 head_left = left.next();
                 head_right = right.next();
-                let (left_op, right_op) = super::charwise::transform(left_op, right_op);
+                let (left_op, right_op) = left_op.transform(right_op);
                 ret_left.modify(left_op);
                 ret_right.modify(right_op);
             },

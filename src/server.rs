@@ -1,6 +1,7 @@
 
 use super::util::*;
-use super::charwise::{apply, compose, transform, Operation};
+use super::Operation as OperationTrait;
+use super::charwise::Operation;
 
 pub trait Connection {
     fn send_state(&mut self, state: &State);
@@ -40,7 +41,7 @@ impl Server {
             };
 
             for state in self.history.iter().skip(since_id.0 + 1) {
-                op = compose(op, state.diff.clone());
+                op = op.compose(state.diff.clone());
             }
 
             Ok((parent_id, op))
@@ -59,14 +60,14 @@ impl Server {
     pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Operation), String> {
         let (parent_id, server_op) = self.get_patch(&parent)?;
 
-        let (server_diff, client_diff) = transform(operation, server_op.clone());
+        let (server_diff, client_diff) = operation.transform(server_op.clone());
         let content_source = self.history[parent.0].content.clone(); 
 
         let id = Id(self.history.len());
         self.history.push(State {
             parent: parent_id.clone(),
             id: id.clone(),
-            content: apply(&content_source, &compose(server_op, server_diff.clone())),
+            content: server_op.compose(server_diff.clone()).apply(&content_source),
             diff: server_diff,
         });
 
