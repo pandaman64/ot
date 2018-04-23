@@ -3,7 +3,7 @@
 use std::default::Default;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-enum PrimitiveOperation {
+pub(crate) enum PrimitiveOperation {
     // skip n bytes of string
     Retain(usize),
     // insert a string
@@ -14,7 +14,7 @@ enum PrimitiveOperation {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operation {
-    operations: Vec<PrimitiveOperation>,
+    pub(crate) operations: Vec<PrimitiveOperation>,
     // the length of the original string, in bytes
     source_len: usize,
     // the length of the applied string, in bytes

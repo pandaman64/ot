@@ -9,6 +9,7 @@ pub mod server;
 pub mod client;
 pub mod charwise;
 pub mod linewise;
+pub mod selection;
 
 pub trait Operation: Sized + std::default::Default {
     type Target;
