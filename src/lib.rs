@@ -4,9 +4,9 @@ extern crate serde_derive;
 #[macro_use]
 extern crate failure;
 
-pub mod util;
-pub mod server;
-pub mod client;
+pub mod cs;
+pub use cs::server;
+pub use cs::client;
 pub mod charwise;
 pub mod linewise;
 pub mod selection;

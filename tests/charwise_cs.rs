@@ -1,7 +1,7 @@
 extern crate ot;
 
 use ot::charwise::*;
-use ot::util::*;
+use ot::cs::*;
 use ot::server;
 use ot::server::*;
 use ot::client;

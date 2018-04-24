@@ -1,6 +1,6 @@
-use super::util::*;
-use super::Operation as OperationTrait;
-use super::charwise::Operation;
+use super::*;
+use super::super::Operation as OperationTrait;
+use super::super::charwise::Operation;
 
 pub trait Connection {
     fn send_state(&mut self, state: &State);

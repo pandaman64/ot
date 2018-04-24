@@ -1,8 +1,8 @@
 use std::mem::replace;
 
-use util::*;
-use super::Operation as OperationTrait;
-use super::charwise::Operation;
+use super::*;
+use super::super::Operation as OperationTrait;
+use super::super::charwise::Operation;
 
 extern crate failure;
 use failure::{Error, Fail};
