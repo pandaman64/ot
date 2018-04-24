@@ -14,7 +14,7 @@ extern crate futures;
 use futures::Future;
 
 #[test]
-fn test_client_server() {
+fn test_charwise_client_server() {
     let server = Rc::new(RefCell::new(Server::new()));
 
     let mut connection1 = mock_connection::MockConnection::new(server.clone());
