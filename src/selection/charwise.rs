@@ -10,7 +10,7 @@ pub enum Selection {
 }
 
 impl Selection {
-    fn transform_index(value: &mut usize, op: &BaseOperation)  {
+    pub(crate) fn transform_index(value: &mut usize, op: &BaseOperation)  {
         use charwise::PrimitiveOperation::*;
 
         let mut idx = 0;

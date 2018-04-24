@@ -1,7 +1,5 @@
-extern crate ot;
 use ot::charwise::*;
-
-extern crate rand;
+use super::rand;
 
 pub fn random_string<R: rand::Rng>(rng: &mut R, len: usize) -> String {
     rng.gen_iter::<char>().take(len).collect()

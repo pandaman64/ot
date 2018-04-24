@@ -3,7 +3,7 @@ use ot::selection::charwise::*;
 use ot::charwise::Operation as BaseOperation;
 use ot::Operation as OperationTrait;
 
-mod charwise_util;
+mod util;
 
 extern crate rand;
 
@@ -162,7 +162,7 @@ fn random_selection<R: rand::Rng>(rng: &mut R, num_selection: usize, len: usize)
 }
 
 fn random_target<R: rand::Rng>(rng: &mut R, num_selection: usize, len: usize) -> Target {
-    let base = charwise_util::random_string(rng, len);
+    let base = util::charwise::random_string(rng, len);
     let selection = random_selection(rng, num_selection, len);
 
     Target {
@@ -178,9 +178,9 @@ fn random_operation<R: rand::Rng>(rng: &mut R, num_selection: usize, target: &Ta
     match rng.gen_range(0, 4) {
         0 => Nop,
         1 => Select(random_selection(rng, num_selection, len)),
-        2 => Operate(charwise_util::random_operation(rng, &target.base)),
+        2 => Operate(util::charwise::random_operation(rng, &target.base)),
         3 => {
-            let op = charwise_util::random_operation(rng, &target.base);
+            let op = util::charwise::random_operation(rng, &target.base);
             let selection = random_selection(rng, num_selection, op.target_len());
             Both(selection, op)
         },

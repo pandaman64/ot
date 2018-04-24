@@ -10,7 +10,7 @@ pub enum LineOperation {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operation {
-    operations: Vec<LineOperation>,
+    pub operations: Vec<LineOperation>,
     source_len: usize,
     target_len: usize,
 }

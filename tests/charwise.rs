@@ -2,10 +2,13 @@ extern crate ot;
 use ot::charwise::*;
 use ot::Operation as OperationTrait;
 
-mod charwise_util;
-use charwise_util::*;
+mod util;
+use util::charwise::*;
 
 extern crate rand;
+extern crate futures;
+#[macro_use]
+extern crate failure;
 
 #[test]
 fn test_apply() {
@@ -146,16 +149,12 @@ fn fuzz_test_transform() {
     }
 }
 
-#[macro_use]
-extern crate failure;
-extern crate futures;
-
 #[test]
 fn test_client_server() {
     use std::rc::Rc;
     use std::cell::RefCell;
 
-    use self::futures::Future;
+    use futures::Future;
 
     use ot::charwise::*;
     use ot::util::*;
