@@ -1,5 +1,8 @@
+use std::default::Default;
+
 #[macro_use]
 extern crate serde_derive;
+extern crate serde;
 
 #[macro_use]
 extern crate failure;
@@ -11,8 +14,11 @@ pub mod charwise;
 pub mod linewise;
 pub mod selection;
 
-pub trait Operation: Sized + std::default::Default {
-    type Target;
+pub trait Operation: Sized + Default + Clone {
+    type Target: Default + Clone;
+
+    // return an operation does nothing when applied to target
+    fn nop(target: &Self::Target) -> Self;
 
     // apply operation to target
     fn apply(&self, target: &Self::Target) -> Self::Target;

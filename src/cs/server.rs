@@ -1,25 +1,23 @@
 use super::*;
-use super::super::Operation as OperationTrait;
-use super::super::charwise::Operation;
+use super::super::Operation;
 
-pub trait Connection {
-    fn send_state(&mut self, state: &State);
+pub trait Connection<O: Operation> {
+    fn send_state(&mut self, state: &State<O>);
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Server {
-    history: Vec<State>,
+pub struct Server<O: Operation> {
+    history: Vec<State<O>>,
     //connections: Vec<Box<Connection>>,
 }
 
-impl Server {
+impl<O: Operation> Server<O> {
     pub fn new() -> Self {
         let history = vec![
             State {
                 parent: Id(0),
                 id: Id(0),
-                diff: Operation::new(),
-                content: "".into(),
+                diff: O::default(),
+                content: O::Target::default(),
             },
         ];
         Server {
@@ -28,16 +26,12 @@ impl Server {
         }
     }
 
-    pub fn get_patch(&self, since_id: &Id) -> Result<(Id, Operation), String> {
+    pub fn get_patch(&self, since_id: &Id) -> Result<(Id, O), String> {
         if self.history.len() <= since_id.0 {
             Err("index out of range".into())
         } else {
             let parent_id = Id(self.history.len() - 1);
-            let mut op = {
-                let mut op = Operation::new();
-                op.retain(self.history[since_id.0].diff.target_len());
-                op
-            };
+            let mut op = O::nop(&self.history[since_id.0].content);
 
             for state in self.history.iter().skip(since_id.0 + 1) {
                 op = op.compose(state.diff.clone());
@@ -47,16 +41,16 @@ impl Server {
         }
     }
 
-    pub fn current_state(&self) -> &State {
+    pub fn current_state(&self) -> &State<O> {
         self.history.last().unwrap()
     }
 
-    pub fn connect<'a>(&'a mut self, mut connection: Box<Connection + 'a>) {
+    pub fn connect<'a>(&'a mut self, mut connection: Box<Connection<O> + 'a>) {
         connection.send_state(self.current_state());
         //self.connections.push(connection);
     }
 
-    pub fn modify(&mut self, parent: Id, operation: Operation) -> Result<(Id, Operation), String> {
+    pub fn modify(&mut self, parent: Id, operation: O) -> Result<(Id, O), String> {
         let (parent_id, server_op) = self.get_patch(&parent)?;
 
         let (server_diff, client_diff) = operation.transform(server_op.clone());

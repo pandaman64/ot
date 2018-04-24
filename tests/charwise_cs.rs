@@ -18,11 +18,10 @@ use futures::Future;
 
 #[test]
 fn test_client_server() {
+    struct MockConnection(Rc<RefCell<Server<Operation>>>);
 
-    struct MockConnection(Rc<RefCell<Server>>);
-
-    impl<'a> server::Connection for &'a MockConnection {
-        fn send_state(&mut self, _state: &State) {}
+    impl<'a> server::Connection<Operation> for &'a MockConnection {
+        fn send_state(&mut self, _state: &State<Operation>) {}
     }
 
     #[derive(Debug, Fail)]
@@ -35,16 +34,16 @@ fn test_client_server() {
         }
     }
 
-    impl client::Connection for MockConnection {
+    impl client::Connection<Operation> for MockConnection {
         type Error = MockConnectionError;
         type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
-        type StateFuture = Box<Future<Item = State, Error = Self::Error>>;
+        type StateFuture = Box<Future<Item = State<Operation>, Error = Self::Error>>;
 
         fn get_latest_state(&self) -> Self::StateFuture {
             use futures::future::ok;
 
             let server = self.0.borrow();
-            Box::new(ok(server.current_state().clone()))
+            Box::new(ok((*server.current_state()).clone()))
         }
 
         fn get_patch_since(&self, since_id: &Id) -> Self::Output {

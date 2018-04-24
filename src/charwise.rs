@@ -102,6 +102,12 @@ impl Default for Operation {
 impl super::Operation for Operation {
     type Target = String;
 
+    fn nop(target: &Self::Target) -> Self {
+        let mut ret = Operation::new();
+        ret.retain(target.len());
+        ret
+    }
+
     fn apply(&self, target: &Self::Target) -> Self::Target {
         let mut target: &str = target;
         let mut ret = String::with_capacity(self.target_len);

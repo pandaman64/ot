@@ -60,6 +60,15 @@ pub struct Target {
     pub selection: Vec<Selection>,
 }
 
+impl Default for Target {
+    fn default() -> Self {
+        Target {
+            base: <BaseOperation as OperationTrait>::Target::default(),
+            selection: vec![],
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Operation {
     Nop,
@@ -76,6 +85,10 @@ impl Default for Operation {
 
 impl OperationTrait for Operation {
     type Target = Target;
+
+    fn nop(_: &Target) -> Self {
+        Operation::Nop
+    }
 
     fn apply(&self, target: &Target) -> Target {
         use self::Operation::*;

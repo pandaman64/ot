@@ -76,6 +76,15 @@ pub struct Target {
     pub selection: Vec<Selection>,
 }
 
+impl Default for Target {
+    fn default() -> Self {
+        Target {
+            base: <BaseOperation as OperationTrait>::Target::default(),
+            selection: vec![],
+        }
+    }
+}
+
 impl Target {
     pub fn operate(&self, op: BaseOperation) -> Operation {
         let selection = self.selection
@@ -109,6 +118,10 @@ impl Default for Operation {
 
 impl OperationTrait for Operation {
     type Target = Target;
+
+    fn nop(_: &Target) -> Self {
+        Operation::Nop
+    }
 
     fn apply(&self, target: &Target) -> Target {
         use self::Operation::*;

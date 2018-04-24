@@ -5,9 +5,6 @@ use ot::Operation as OperationTrait;
 mod util;
 use util::charwise::*;
 
-#[macro_use]
-extern crate failure;
-extern crate futures;
 extern crate rand;
 
 #[test]

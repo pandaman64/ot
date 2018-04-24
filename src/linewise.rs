@@ -98,6 +98,12 @@ impl Default for Operation {
 impl super::Operation for Operation {
     type Target = Vec<String>;
 
+    fn nop(target: &Self::Target) -> Self {
+        let mut ret = Operation::new();
+        ret.retain(target.len());
+        ret
+    }
+
     fn apply(&self, target: &Self::Target) -> Self::Target {
         assert_eq!(target.len(), self.source_len);
 

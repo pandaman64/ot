@@ -1,8 +1,7 @@
 use std::mem::replace;
 
 use super::*;
-use super::super::Operation as OperationTrait;
-use super::super::charwise::Operation;
+use super::super::Operation;
 
 extern crate failure;
 use failure::{Error, Fail};
@@ -10,17 +9,17 @@ use failure::{Error, Fail};
 extern crate futures;
 use self::futures::Future;
 
-pub trait Connection {
+pub trait Connection<O: Operation> {
     type Error: Fail;
-    type Output: Future<Item = (Id, Operation), Error = Self::Error> + 'static;
-    type StateFuture: Future<Item = State, Error = Self::Error> + 'static;
+    type Output: Future<Item = (Id, O), Error = Self::Error> + 'static;
+    type StateFuture: Future<Item = State<O>, Error = Self::Error> + 'static;
 
     fn get_latest_state(&self) -> Self::StateFuture;
     fn get_patch_since(&self, since_id: &Id) -> Self::Output;
-    fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output;
+    fn send_operation(&self, base_id: Id, operation: O) -> Self::Output;
 }
 
-impl<C: Connection + ?Sized> Connection for Box<C> {
+impl<O: Operation, C: Connection<O> + ?Sized> Connection<O> for Box<C> {
     type Error = C::Error;
     type Output = C::Output;
     type StateFuture = C::StateFuture;
@@ -33,12 +32,12 @@ impl<C: Connection + ?Sized> Connection for Box<C> {
         (**self).get_patch_since(since_id)
     }
 
-    fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output {
+    fn send_operation(&self, base_id: Id, operation: O) -> Self::Output {
         (**self).send_operation(base_id, operation)
     }
 }
 
-impl<'c, C: Connection + ?Sized + 'c> Connection for &'c C {
+impl<'c, O: Operation, C: Connection<O> + ?Sized + 'c> Connection<O> for &'c C {
     type Error = C::Error;
     type Output = C::Output;
     type StateFuture = C::StateFuture;
@@ -51,15 +50,15 @@ impl<'c, C: Connection + ?Sized + 'c> Connection for &'c C {
         (*self).get_patch_since(since_id)
     }
 
-    fn send_operation(&self, base_id: Id, operation: Operation) -> Self::Output {
+    fn send_operation(&self, base_id: Id, operation: O) -> Self::Output {
         (*self).send_operation(base_id, operation)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ClientState {
+pub struct ClientState<T> {
     id: Id,
-    content: String,
+    content: T,
 }
 
 #[derive(Debug, Fail)]
@@ -72,22 +71,22 @@ pub enum ClientError {
     NotConnected(String),
 }
 
-pub enum Client<C: Connection> {
+pub enum Client<O: Operation, C: Connection<O>> {
     WaitingForResponse {
-        base_state: ClientState,
-        sent_diff: Operation,
-        current_diff: Option<Operation>,
+        base_state: ClientState<O::Target>,
+        sent_diff: O,
+        current_diff: Option<O>,
         connection: C,
     },
     Buffering {
-        base_state: ClientState,
-        current_diff: Option<Operation>,
+        base_state: ClientState<O::Target>,
+        current_diff: Option<O>,
         connection: C,
     },
     Error(String),
 }
 
-impl<'c, C: Connection + 'c> Client<C> {
+impl<'c, O:Operation + 'static, C: Connection<O> + 'c> Client<O, C> {
     pub fn with_connection(connection: C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
         Box::new(
             connection
@@ -103,7 +102,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         )
     }
 
-    pub fn current_content(&self) -> Result<String, String> {
+    pub fn current_content(&self) -> Result<O::Target, String> {
         use self::Client::*;
         match *self {
             WaitingForResponse { ref base_state, .. } | Buffering { ref base_state, .. } => {
@@ -113,7 +112,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         }
     }
 
-    pub fn push_operation(&mut self, operation: Operation) {
+    pub fn push_operation(&mut self, operation: O) {
         use self::Client::*;
         match *self {
             WaitingForResponse {
@@ -166,7 +165,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         }
     }
 
-    pub fn apply_patch(&mut self, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
+    pub fn apply_patch(&mut self, latest_id: Id, diff: O) -> Result<(), ClientError> {
         use self::Client::*;
         use self::ClientError::*;
 
@@ -207,7 +206,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         }
     }
 
-    pub fn apply_response(&mut self, id: Id, op: Operation) -> Result<(), C::Error> {
+    pub fn apply_response(&mut self, id: Id, op: O) -> Result<(), C::Error> {
         use self::Client::*;
         match replace(self, Error("".into())) {
             WaitingForResponse {
@@ -234,10 +233,10 @@ impl<'c, C: Connection + 'c> Client<C> {
     }
 
     fn patch<'a>(
-        base_state: &'a mut ClientState,
-        current_diff: &'a mut Option<Operation>,
+        base_state: &'a mut ClientState<O::Target>,
+        current_diff: &'a mut Option<O>,
         latest_id: Id,
-        diff: Operation,
+        diff: O,
     ) -> Result<(), ClientError> {
         let content;
         if let Some(current) = replace(current_diff, None) {
@@ -255,7 +254,7 @@ impl<'c, C: Connection + 'c> Client<C> {
         Ok(())
     }
 
-    pub fn send_get_patch(&self) -> Box<Future<Item = (Id, Operation), Error = ClientError>> {
+    pub fn send_get_patch(&self) -> Box<Future<Item = (Id, O), Error = ClientError>> {
         use self::Client::*;
         use self::ClientError::*;
         use self::futures::future::err;
