@@ -1,4 +1,3 @@
-
 use std::mem::replace;
 
 use util::*;
@@ -90,28 +89,26 @@ pub enum Client<C: Connection> {
 
 impl<'c, C: Connection + 'c> Client<C> {
     pub fn with_connection(connection: C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
-        Box::new(connection.get_latest_state()
-            .map(move |state| 
-                Client::Buffering {
+        Box::new(
+            connection
+                .get_latest_state()
+                .map(move |state| Client::Buffering {
                     current_diff: None,
                     base_state: ClientState {
                         id: state.id,
-                        content: state.content
+                        content: state.content,
                     },
                     connection: connection,
-                }))
+                }),
+        )
     }
 
     pub fn current_content(&self) -> Result<String, String> {
         use self::Client::*;
         match *self {
-            WaitingForResponse {
-                ref base_state, ..
-            } | Buffering {
-                ref base_state, ..
-            } => {
+            WaitingForResponse { ref base_state, .. } | Buffering { ref base_state, .. } => {
                 Ok(base_state.content.clone())
-            },
+            }
             Error(ref error) => Err(error.clone()),
         }
     }
@@ -120,24 +117,36 @@ impl<'c, C: Connection + 'c> Client<C> {
         use self::Client::*;
         match *self {
             WaitingForResponse {
-                ref mut current_diff, ..
-            } | Buffering {
-                ref mut current_diff, ..
+                ref mut current_diff,
+                ..
+            }
+            | Buffering {
+                ref mut current_diff,
+                ..
             } => {
                 if let Some(current) = replace(current_diff, None) {
                     *current_diff = Some(current.compose(operation));
                 } else {
                     *current_diff = Some(operation);
                 }
-            },
-            Error(_) => {},
+            }
+            Error(_) => {}
         }
     }
 
     pub fn send_to_server(&mut self) -> Result<C::Output, String> {
         use self::Client::*;
-        if let &mut Buffering { current_diff: Some(_), .. } = self {
-            if let Buffering { base_state, current_diff, connection } = replace(self, Error("".into())) {
+        if let &mut Buffering {
+            current_diff: Some(_),
+            ..
+        } = self
+        {
+            if let Buffering {
+                base_state,
+                current_diff,
+                connection,
+            } = replace(self, Error("".into()))
+            {
                 let current_diff = current_diff.unwrap();
                 let ret = connection.send_operation(base_state.id.clone(), current_diff.clone());
                 *self = WaitingForResponse {
@@ -164,7 +173,10 @@ impl<'c, C: Connection + 'c> Client<C> {
         match replace(self, Error("".into())) {
             Error(ref s) => Err(NotConnected(s.clone())),
             WaitingForResponse {
-                base_state, sent_diff, current_diff, connection, 
+                base_state,
+                sent_diff,
+                current_diff,
+                connection,
             } => {
                 let content = sent_diff.compose(diff.clone()).apply(&base_state.content);
 
@@ -178,16 +190,20 @@ impl<'c, C: Connection + 'c> Client<C> {
                 };
 
                 Ok(())
-            },
+            }
             Buffering {
                 mut base_state,
                 mut current_diff,
-                connection, 
+                connection,
             } => {
                 Self::patch(&mut base_state, &mut current_diff, latest_id, diff)?;
-                *self = Buffering { base_state, current_diff, connection };
+                *self = Buffering {
+                    base_state,
+                    current_diff,
+                    connection,
+                };
                 Ok(())
-            },
+            }
         }
     }
 
@@ -195,7 +211,10 @@ impl<'c, C: Connection + 'c> Client<C> {
         use self::Client::*;
         match replace(self, Error("".into())) {
             WaitingForResponse {
-                base_state, sent_diff, current_diff, connection, 
+                base_state,
+                sent_diff,
+                current_diff,
+                connection,
             } => {
                 let content = sent_diff.compose(op.clone()).apply(&base_state.content);
 
@@ -209,12 +228,17 @@ impl<'c, C: Connection + 'c> Client<C> {
                 };
 
                 Ok(())
-            },
-            _ => unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 
-    fn patch<'a>(base_state: &'a mut ClientState, current_diff: &'a mut Option<Operation>, latest_id: Id, diff: Operation) -> Result<(), ClientError> {
+    fn patch<'a>(
+        base_state: &'a mut ClientState,
+        current_diff: &'a mut Option<Operation>,
+        latest_id: Id,
+        diff: Operation,
+    ) -> Result<(), ClientError> {
         let content;
         if let Some(current) = replace(current_diff, None) {
             let (current, _) = current.transform(diff.clone());
@@ -241,14 +265,16 @@ impl<'c, C: Connection + 'c> Client<C> {
             WaitingForResponse { .. } => Box::new(err(Syncing)),
             Buffering {
                 ref base_state,
-                ref connection, 
+                ref connection,
                 ..
             } => {
-                Box::new(connection.get_patch_since(&base_state.id)
-                    .map_err(Into::into)
-                    .map_err(ConnectionError)) // should we change self to Error?
-            },
+                Box::new(
+                    connection
+                        .get_patch_since(&base_state.id)
+                        .map_err(Into::into)
+                        .map_err(ConnectionError),
+                ) // should we change self to Error?
+            }
         }
     }
 }
-

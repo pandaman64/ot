@@ -20,10 +20,9 @@ pub trait Operation: Sized + std::default::Default {
     // compose two operations
     // compose must satisfy apply(apply(s, a), b) == apply(s, compose(a, b))
     fn compose(self, other: Self) -> Self;
-    
+
     // transforms two operations so that composed operations will converge
     // let (left', right') = transform(left, right), these satisfies the condition
     // apply(s, compose(left, right')) == apply(s, compose(right, left'))
     fn transform(self, other: Self) -> (Self, Self);
 }
-

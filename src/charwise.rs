@@ -106,7 +106,13 @@ impl super::Operation for Operation {
         let mut target: &str = target;
         let mut ret = String::with_capacity(self.target_len);
 
-        assert_eq!(target.len(), self.source_len, "the length of string {} and the source length of operation {:?} must match", target, self);
+        assert_eq!(
+            target.len(),
+            self.source_len,
+            "the length of string {} and the source length of operation {:?} must match",
+            target,
+            self
+        );
 
         for op in self.operations.iter() {
             use self::PrimitiveOperation::*;
@@ -145,22 +151,22 @@ impl super::Operation for Operation {
                     head_first = None;
                     head_second = second.next();
                     ret.add(value.unwrap());
-                },
+                }
                 (value, None) => {
                     head_first = first.next();
                     head_second = None;
                     ret.add(value.unwrap());
-                },
+                }
                 (Some(Delete(len)), s) => {
                     head_first = first.next();
                     head_second = s;
                     ret.delete(len);
-                },
+                }
                 (f, Some(Insert(s))) => {
                     head_first = f;
                     head_second = second.next();
                     ret.insert(s);
-                },
+                }
                 (Some(Retain(len_first)), Some(Retain(len_second))) => {
                     if len_first < len_second {
                         head_first = first.next();
@@ -175,7 +181,7 @@ impl super::Operation for Operation {
                         head_second = second.next();
                         ret.retain(len_second);
                     }
-                },
+                }
                 (Some(Retain(len_first)), Some(Delete(len_second))) => {
                     if len_first < len_second {
                         head_first = first.next();
@@ -190,7 +196,7 @@ impl super::Operation for Operation {
                         head_second = second.next();
                         ret.delete(len_second);
                     }
-                },
+                }
                 (Some(Insert(mut s)), Some(Delete(len))) => {
                     if s.len() < len {
                         head_first = first.next();
@@ -202,7 +208,7 @@ impl super::Operation for Operation {
                         head_first = Some(Insert(s.split_off(len)));
                         head_second = second.next();
                     }
-                },
+                }
                 (Some(Insert(mut s)), Some(Retain(len))) => {
                     if s.len() < len {
                         head_first = first.next();
@@ -215,13 +221,17 @@ impl super::Operation for Operation {
                         head_second = second.next();
                     }
                     ret.insert(s);
-                },
+                }
             }
         }
     }
 
     fn transform(self, other: Self) -> (Self, Self) {
-        assert_eq!(self.source_len, other.source_len, "the source of both operation must match. left = {:?}, right = {:?}", self, other);
+        assert_eq!(
+            self.source_len, other.source_len,
+            "the source of both operation must match. left = {:?}, right = {:?}",
+            self, other
+        );
 
         let mut ret_left = Operation::new();
         let mut ret_right = Operation::new();
@@ -242,13 +252,13 @@ impl super::Operation for Operation {
                     ret_left.insert(s);
                     head_left = left.next();
                     head_right = value;
-                },
+                }
                 (value, Some(Insert(s))) => {
                     ret_left.retain(s.len());
                     ret_right.insert(s);
                     head_left = value;
                     head_right = right.next();
-                },
+                }
                 (None, _) => unreachable!("left is too short"),
                 (_, None) => unreachable!("right is too short"),
                 (Some(Retain(left_len)), Some(Retain(right_len))) => {
@@ -268,7 +278,7 @@ impl super::Operation for Operation {
                     }
                     ret_left.retain(len);
                     ret_right.retain(len);
-                },
+                }
                 (Some(Delete(left_len)), Some(Delete(right_len))) => {
                     if left_len < right_len {
                         head_left = left.next();
@@ -280,7 +290,7 @@ impl super::Operation for Operation {
                         head_left = Some(Delete(left_len - right_len));
                         head_right = right.next();
                     }
-                },
+                }
                 (Some(Retain(left_len)), Some(Delete(right_len))) => {
                     let len;
                     if left_len < right_len {
@@ -297,7 +307,7 @@ impl super::Operation for Operation {
                         head_right = right.next();
                     }
                     ret_right.delete(len);
-                },
+                }
                 (Some(Delete(left_len)), Some(Retain(right_len))) => {
                     let len;
                     if left_len < right_len {
@@ -314,9 +324,8 @@ impl super::Operation for Operation {
                         head_right = right.next();
                     }
                     ret_left.delete(len);
-                },
+                }
             }
         }
     }
 }
-

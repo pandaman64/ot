@@ -5,7 +5,6 @@ pub struct Id(pub usize);
 pub struct State {
     pub parent: Id,
     pub id: Id,
-    pub diff: super::charwise::Operation, 
+    pub diff: super::charwise::Operation,
     pub content: String,
 }
-

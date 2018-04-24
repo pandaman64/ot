@@ -5,10 +5,10 @@ use ot::Operation as OperationTrait;
 mod util;
 use util::charwise::*;
 
-extern crate rand;
-extern crate futures;
 #[macro_use]
 extern crate failure;
+extern crate futures;
+extern crate rand;
 
 #[test]
 fn test_apply() {
@@ -166,8 +166,7 @@ fn test_client_server() {
     struct MockConnection(Rc<RefCell<Server>>);
 
     impl<'a> server::Connection for &'a MockConnection {
-        fn send_state(&mut self, _state: &State) {
-        }
+        fn send_state(&mut self, _state: &State) {}
     }
 
     #[derive(Debug, Fail)]
@@ -245,7 +244,10 @@ fn test_client_server() {
     }
 
     assert_eq!(client1.current_content().unwrap(), "こんにちは 世界");
-    assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
+    assert_eq!(
+        client2.current_content().unwrap(),
+        "!こんにちは 世界"
+    );
 
     client1.push_operation({
         let mut op = Operation::new();
@@ -259,15 +261,26 @@ fn test_client_server() {
         client1.apply_patch(id, op).unwrap();
     }
 
-    assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
-    assert_eq!(client2.current_content().unwrap(), "!こんにちは 世界");
-    
+    assert_eq!(
+        client1.current_content().unwrap(),
+        "!さようなら 世界"
+    );
+    assert_eq!(
+        client2.current_content().unwrap(),
+        "!こんにちは 世界"
+    );
+
     {
         let (latest_id, diff) = client2.send_get_patch().wait().unwrap();
         client2.apply_patch(latest_id, diff).unwrap();
     }
 
-    assert_eq!(client1.current_content().unwrap(), "!さようなら 世界");
-    assert_eq!(client2.current_content().unwrap(), "!さようなら 世界");
+    assert_eq!(
+        client1.current_content().unwrap(),
+        "!さようなら 世界"
+    );
+    assert_eq!(
+        client2.current_content().unwrap(),
+        "!さようなら 世界"
+    );
 }
-

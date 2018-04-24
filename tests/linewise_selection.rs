@@ -16,48 +16,55 @@ fn test_apply() {
     let target = Target {
         base: vec!["こんにちは".into(), "世界".into()],
         selection: vec![
-            Range(Position {
-                row: 0,
-                col: "こんに".len()
-            }, Position {
-                row: 1,
-                col: "世".len()
-            }),
+            Range(
+                Position {
+                    row: 0,
+                    col: "こんに".len(),
+                },
+                Position {
+                    row: 1,
+                    col: "世".len(),
+                },
+            ),
             Cursor(Position {
                 row: 1,
-                col: "世界".len()
+                col: "世界".len(),
             }),
         ],
     };
     let op = target.operate({
         let mut op = BaseOperation::new();
-        op.retain(1)
-            .insert("!".into())
-            .modify({
-                let mut op = ot::charwise::Operation::new();
-                op.delete("世界".len());
-                op.insert("社会".into());
-                op
-            });
+        op.retain(1).insert("!".into()).modify({
+            let mut op = ot::charwise::Operation::new();
+            op.delete("世界".len());
+            op.insert("社会".into());
+            op
+        });
         op
     });
 
-    assert_eq!(op.apply(&target), Target {
-        base: vec!["こんにちは".into(), "!".into(), "社会".into()],
-        selection: vec![
-            Range(Position {
-                row: 0,
-                col: "こんに".len()
-            }, Position {
-                row: 2,
-                col: "社会".len()
-            }),
-            Cursor(Position {
-                row: 2,
-                col: "社会".len()
-            }),
-        ]
-    });
+    assert_eq!(
+        op.apply(&target),
+        Target {
+            base: vec!["こんにちは".into(), "!".into(), "社会".into()],
+            selection: vec![
+                Range(
+                    Position {
+                        row: 0,
+                        col: "こんに".len(),
+                    },
+                    Position {
+                        row: 2,
+                        col: "社会".len(),
+                    },
+                ),
+                Cursor(Position {
+                    row: 2,
+                    col: "社会".len(),
+                }),
+            ],
+        }
+    );
 }
 
 #[test]
@@ -68,37 +75,36 @@ fn test_compose() {
     let target = Target {
         base: vec!["こんにちは".into(), "世界".into()],
         selection: vec![
-            Range(Position {
-                row: 0,
-                col: "こんに".len()
-            }, Position {
-                row: 1,
-                col: "世".len()
-            }),
+            Range(
+                Position {
+                    row: 0,
+                    col: "こんに".len(),
+                },
+                Position {
+                    row: 1,
+                    col: "世".len(),
+                },
+            ),
             Cursor(Position {
                 row: 1,
-                col: "世界".len()
+                col: "世界".len(),
             }),
         ],
     };
     let first = target.operate({
         let mut op = BaseOperation::new();
-        op.retain(1)
-            .insert("!".into())
-            .modify({
-                let mut op = ot::charwise::Operation::new();
-                op.delete("世界".len());
-                op.insert("社会".into());
-                op
-            });
+        op.retain(1).insert("!".into()).modify({
+            let mut op = ot::charwise::Operation::new();
+            op.delete("世界".len());
+            op.insert("社会".into());
+            op
+        });
         op
     });
     let applied = first.apply(&target);
     let second = applied.operate({
         let mut op = BaseOperation::new();
-        op.delete(1)
-            .insert("さようなら".into())
-            .retain(2);
+        op.delete(1).insert("さようなら".into()).retain(2);
         op
     });
 
@@ -111,13 +117,13 @@ fn test_compose() {
         Target {
             base: vec!["さようなら".into(), "!".into(), "社会".into()],
             selection: vec![
-                Range(Position {
-                    row: 1,
-                    col: 0,
-                }, Position {
-                    row: 2,
-                    col: "社会".len(),
-                }),
+                Range(
+                    Position { row: 1, col: 0 },
+                    Position {
+                        row: 2,
+                        col: "社会".len(),
+                    },
+                ),
                 Cursor(Position {
                     row: 2,
                     col: "社会".len(),
@@ -130,13 +136,13 @@ fn test_compose() {
         Target {
             base: vec!["さようなら".into(), "!".into(), "社会".into()],
             selection: vec![
-                Range(Position {
-                    row: 1,
-                    col: 0,
-                }, Position {
-                    row: 2,
-                    col: "社会".len(),
-                }),
+                Range(
+                    Position { row: 1, col: 0 },
+                    Position {
+                        row: 2,
+                        col: "社会".len(),
+                    },
+                ),
                 Cursor(Position {
                     row: 2,
                     col: "社会".len(),
@@ -154,94 +160,84 @@ fn test_transform() {
     let target = Target {
         base: vec!["こんにちは".into(), "世界".into()],
         selection: vec![
-            Range(Position {
-                row: 0,
-                col: "こんに".len()
-            }, Position {
-                row: 1,
-                col: "世".len()
-            }),
+            Range(
+                Position {
+                    row: 0,
+                    col: "こんに".len(),
+                },
+                Position {
+                    row: 1,
+                    col: "世".len(),
+                },
+            ),
             Cursor(Position {
                 row: 0,
-                col: "こんにち".len()
+                col: "こんにち".len(),
             }),
         ],
     };
     let left = target.operate({
         let mut op = BaseOperation::new();
-        op.retain(1)
-            .insert("!".into())
-            .modify({
-                let mut op = ot::charwise::Operation::new();
-                op.delete("世界".len());
-                op.insert("社会".into());
-                op
-            });
+        op.retain(1).insert("!".into()).modify({
+            let mut op = ot::charwise::Operation::new();
+            op.delete("世界".len());
+            op.insert("社会".into());
+            op
+        });
         op
     });
-    let right = Operation::Op(vec![
-        Cursor(Position {
-            row: 0,
-            col: "こ".len(),
-        }),
-    ], {
-        let mut op = BaseOperation::new();
-        op.delete(1)
-            .insert("さようなら".into())
-            .retain(1);
-        op
-    });
+    let right = Operation::Op(
+        vec![
+            Cursor(Position {
+                row: 0,
+                col: "こ".len(),
+            }),
+        ],
+        {
+            let mut op = BaseOperation::new();
+            op.delete(1).insert("さようなら".into()).retain(1);
+            op
+        },
+    );
 
     let (left_, right_) = left.clone().transform(right.clone());
     let composed_left = left.compose(right_);
     let composed_right = right.compose(left_);
 
+    assert_eq!(composed_left.apply(&target), composed_right.apply(&target));
     assert_eq!(
         composed_left.apply(&target),
-        composed_right.apply(&target)
+        Target {
+            base: vec!["!".into(), "さようなら".into(), "社会".into()],
+            selection: vec![
+                Range(
+                    Position { row: 0, col: 0 },
+                    Position {
+                        row: 2,
+                        col: "社会".len(),
+                    },
+                ),
+                Cursor(Position { row: 0, col: 0 }),
+            ],
+        }
     );
-    assert_eq!(composed_left.apply(&target), Target {
-        base: vec![
-            "!".into(),
-            "さようなら".into(),
-            "社会".into()
-        ],
-        selection: vec![
-            Range(Position {
-                row: 0,
-                col: 0,
-            }, Position {
-                row: 2,
-                col: "社会".len(),
-            }),
-            Cursor(Position {
-                row: 0,
-                col: 0,
-            }),
-        ], 
-    });
-    assert_eq!(composed_left.apply(&target), Target {
-        base: vec![
-            "!".into(),
-            "さようなら".into(),
-            "社会".into()
-        ],
-        selection: vec![
-            Range(Position {
-                row: 0,
-                col: 0,
-            }, Position {
-                row: 2,
-                col: "社会".len(),
-            }),
-            Cursor(Position {
-                row: 0,
-                col: 0,
-            }),
-        ], 
-    });
+    assert_eq!(
+        composed_left.apply(&target),
+        Target {
+            base: vec!["!".into(), "さようなら".into(), "社会".into()],
+            selection: vec![
+                Range(
+                    Position { row: 0, col: 0 },
+                    Position {
+                        row: 2,
+                        col: "社会".len(),
+                    },
+                ),
+                Cursor(Position { row: 0, col: 0 }),
+            ],
+        }
+    );
 }
-
 
 #[test]
 fn test_random_operation() {
@@ -251,7 +247,7 @@ fn test_random_operation() {
     let len = rng.gen_range(32, 100);
     let max_line_len = 30;
     let selection_num = rng.gen_range(1, 30);
-    let target = random_target(&mut rng, selection_num,  max_line_len, len);
+    let target = random_target(&mut rng, selection_num, max_line_len, len);
 
     let operation = random_operation(&mut rng, selection_num, &target);
 
@@ -305,4 +301,3 @@ fn fuzz_test_transform() {
         assert_eq!(left.apply(&target), right.apply(&target));
     }
 }
-

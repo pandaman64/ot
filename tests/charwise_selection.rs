@@ -28,15 +28,18 @@ fn test_apply() {
         op
     });
 
-    assert_eq!(op.apply(&target), Target {
-        base: "こんにちは! 社会".into(),
-        selection: vec![
-            // this behavior (extension of range) might be a specification bug
-            // but hackmd seems to have the same behavior, so it's ok for now 
-            Range("こんにちは!".len(), "こんにちは! 社会".len()),
-            Cursor("こんにちは! 社会".len()),
-        ]
-    });
+    assert_eq!(
+        op.apply(&target),
+        Target {
+            base: "こんにちは! 社会".into(),
+            selection: vec![
+                // this behavior (extension of range) might be a specification bug
+                // but hackmd seems to have the same behavior, so it's ok for now
+                Range("こんにちは!".len(), "こんにちは! 社会".len()),
+                Cursor("こんにちは! 社会".len()),
+            ],
+        }
+    );
 }
 
 #[test]
@@ -47,18 +50,21 @@ fn test_compose() {
         base: "こんにちは 世界".into(),
         selection: vec![],
     };
-    let first = Operation::Both(vec![
-        Range("こんにちは!".len(), "こんにちは! ".len()),
-        Cursor("こんにちは! 世界".len()),
-    ], {
-        let mut op = BaseOperation::new();
-        op.retain("こんにちは".len())
-            .insert("!".into())
-            .retain(" ".len())
-            .delete("世界".len())
-            .insert("社会".into());
-        op
-    });
+    let first = Operation::Both(
+        vec![
+            Range("こんにちは!".len(), "こんにちは! ".len()),
+            Cursor("こんにちは! 世界".len()),
+        ],
+        {
+            let mut op = BaseOperation::new();
+            op.retain("こんにちは".len())
+                .insert("!".into())
+                .retain(" ".len())
+                .delete("世界".len())
+                .insert("社会".into());
+            op
+        },
+    );
     let second = Operation::Operate({
         let mut op = BaseOperation::new();
         op.delete("こんにちは".len())
@@ -101,21 +107,22 @@ fn test_transform() {
         base: "こんにちは 世界".into(),
         selection: vec![],
     };
-    let left = Operation::Both(vec![
-        Range("こんにちは!".len(), "こんにちは! ".len()),
-        Cursor("こんにちは! 世界".len()),
-    ], {
-        let mut op = BaseOperation::new();
-        op.retain("こんにちは".len())
-            .insert("!".into())
-            .retain(" ".len())
-            .delete("世界".len())
-            .insert("社会".into());
-        op
-    });
-    let right = Operation::Both(vec![
-        Cursor("こ".len()),
-    ], {
+    let left = Operation::Both(
+        vec![
+            Range("こんにちは!".len(), "こんにちは! ".len()),
+            Cursor("こんにちは! 世界".len()),
+        ],
+        {
+            let mut op = BaseOperation::new();
+            op.retain("こんにちは".len())
+                .insert("!".into())
+                .retain(" ".len())
+                .delete("世界".len())
+                .insert("社会".into());
+            op
+        },
+    );
+    let right = Operation::Both(vec![Cursor("こ".len())], {
         let mut op = BaseOperation::new();
         op.delete("こんにちは".len())
             .insert("さようなら".into())
@@ -127,48 +134,50 @@ fn test_transform() {
     let composed_left = left.compose(right_);
     let composed_right = right.compose(left_);
 
+    assert_eq!(composed_left.apply(&target), composed_right.apply(&target));
     assert_eq!(
         composed_left.apply(&target),
-        composed_right.apply(&target)
+        Target {
+            base: "!さようなら 社会".into(),
+            selection: vec![
+                Range("!さようなら".len(), "!さようなら ".len()),
+                Cursor("!さようなら 社会".len()),
+            ],
+        }
     );
-    assert_eq!(composed_left.apply(&target), Target {
-        base: "!さようなら 社会".into(),
-        selection: vec![
-            Range("!さようなら".len(), "!さようなら ".len()),
-            Cursor("!さようなら 社会".len()),
-        ], 
-    });
-    assert_eq!(composed_left.apply(&target), Target {
-        base: "!さようなら 社会".into(),
-        selection: vec![
-            Range("!さようなら".len(), "!さようなら ".len()),
-            Cursor("!さようなら 社会".len()),
-        ], 
-    });
+    assert_eq!(
+        composed_left.apply(&target),
+        Target {
+            base: "!さようなら 社会".into(),
+            selection: vec![
+                Range("!さようなら".len(), "!さようなら ".len()),
+                Cursor("!さようなら 社会".len()),
+            ],
+        }
+    );
 }
 
 use rand::distributions::{Range, Sample};
 fn random_selection<R: rand::Rng>(rng: &mut R, num_selection: usize, len: usize) -> Vec<Selection> {
     let mut range = Range::new(0, len + 1);
-    (0..rng.gen_range(0, num_selection)).map(|_| {
-        let start = range.sample(rng);
-        let end = range.sample(rng);
-        if start == end {
-            Selection::Cursor(start)
-        } else {
-            Selection::Range(start.min(end), start.max(end))
-        }
-    }).collect()
+    (0..rng.gen_range(0, num_selection))
+        .map(|_| {
+            let start = range.sample(rng);
+            let end = range.sample(rng);
+            if start == end {
+                Selection::Cursor(start)
+            } else {
+                Selection::Range(start.min(end), start.max(end))
+            }
+        })
+        .collect()
 }
 
 fn random_target<R: rand::Rng>(rng: &mut R, num_selection: usize, len: usize) -> Target {
     let base = util::charwise::random_string(rng, len);
     let selection = random_selection(rng, num_selection, len);
 
-    Target {
-        base,
-        selection,
-    }
+    Target { base, selection }
 }
 
 fn random_operation<R: rand::Rng>(rng: &mut R, num_selection: usize, target: &Target) -> Operation {
@@ -183,8 +192,8 @@ fn random_operation<R: rand::Rng>(rng: &mut R, num_selection: usize, target: &Ta
             let op = util::charwise::random_operation(rng, &target.base);
             let selection = random_selection(rng, num_selection, op.target_len());
             Both(selection, op)
-        },
-        _ => unreachable!()
+        }
+        _ => unreachable!(),
     }
 }
 
@@ -247,4 +256,3 @@ fn fuzz_test_transform() {
         assert_eq!(left.apply(&target), right.apply(&target));
     }
 }
-

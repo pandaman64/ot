@@ -1,4 +1,3 @@
-
 use super::util::*;
 use super::Operation as OperationTrait;
 use super::charwise::Operation;
@@ -16,13 +15,13 @@ pub struct Server {
 impl Server {
     pub fn new() -> Self {
         let history = vec![
-            State { 
+            State {
                 parent: Id(0),
                 id: Id(0),
                 diff: Operation::new(),
-                content: "".into() 
-            }
-        ]; 
+                content: "".into(),
+            },
+        ];
         Server {
             history: history,
             //connections: vec![]
@@ -61,17 +60,18 @@ impl Server {
         let (parent_id, server_op) = self.get_patch(&parent)?;
 
         let (server_diff, client_diff) = operation.transform(server_op.clone());
-        let content_source = self.history[parent.0].content.clone(); 
+        let content_source = self.history[parent.0].content.clone();
 
         let id = Id(self.history.len());
         self.history.push(State {
             parent: parent_id.clone(),
             id: id.clone(),
-            content: server_op.compose(server_diff.clone()).apply(&content_source),
+            content: server_op
+                .compose(server_diff.clone())
+                .apply(&content_source),
             diff: server_diff,
         });
 
         Ok((id, client_diff))
     }
 }
-

@@ -3,14 +3,20 @@ use super::rand;
 
 use super::charwise as charwise_util;
 
-pub fn random_lines<R: rand::Rng>(rng: &mut R, max_line_len: usize, line_num: usize) -> Vec<String> {
+pub fn random_lines<R: rand::Rng>(
+    rng: &mut R,
+    max_line_len: usize,
+    line_num: usize,
+) -> Vec<String> {
     use rand::distributions::{Range, Sample};
 
     let mut len = Range::new(0, max_line_len + 1);
-    (0..line_num).map(|_| {
-        let len = len.sample(rng);
-        charwise_util::random_string(rng, len)
-    }).collect()
+    (0..line_num)
+        .map(|_| {
+            let len = len.sample(rng);
+            charwise_util::random_string(rng, len)
+        })
+        .collect()
 }
 
 pub fn random_operation<R: rand::Rng>(rng: &mut R, original: &[String]) -> Operation {

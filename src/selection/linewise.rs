@@ -16,7 +16,7 @@ pub enum Selection {
 }
 
 impl Selection {
-    fn transform_index(value: &mut Position, op: &BaseOperation)  {
+    fn transform_index(value: &mut Position, op: &BaseOperation) {
         use linewise::LineOperation::*;
 
         // index in row
@@ -26,13 +26,13 @@ impl Selection {
             match *op {
                 Retain(len) => {
                     idx += len;
-                },
+                }
                 Insert(_) => {
                     if idx <= value.row {
                         value.row += 1;
                     }
                     idx += 1;
-                },
+                }
                 Modify(ref op) => {
                     if idx == value.row {
                         super::charwise::Selection::transform_index(&mut value.col, op);
@@ -78,7 +78,11 @@ pub struct Target {
 
 impl Target {
     pub fn operate(&self, op: BaseOperation) -> Operation {
-        let selection = self.selection.iter().cloned().filter_map(|s| s.transform(&op)).collect();
+        let selection = self.selection
+            .iter()
+            .cloned()
+            .filter_map(|s| s.transform(&op))
+            .collect();
         Operation::Op(selection, op)
     }
 
@@ -115,11 +119,8 @@ impl OperationTrait for Operation {
                 let base = op.apply(&target.base);
                 let selection = s.clone();
 
-                Target {
-                    base,
-                    selection,
-                }
-            },
+                Target { base, selection }
+            }
         }
     }
 
@@ -129,9 +130,7 @@ impl OperationTrait for Operation {
         match (self, other) {
             (Nop, other) => other,
             (this, Nop) => this,
-            (Op(_, lhs), Op(s, rhs)) => {
-                Op(s, lhs.compose(rhs))
-            }
+            (Op(_, lhs), Op(s, rhs)) => Op(s, lhs.compose(rhs)),
         }
     }
 
@@ -144,10 +143,10 @@ impl OperationTrait for Operation {
             (this, Nop) => (this, Nop),
             (Op(s, lhs), Op(_, rhs)) => {
                 let (lhs_, rhs_) = lhs.transform(rhs);
-                let selection: Vec<Selection> = s.into_iter().filter_map(|s| s.transform(&rhs_)).collect();
+                let selection: Vec<Selection> =
+                    s.into_iter().filter_map(|s| s.transform(&rhs_)).collect();
                 (Op(selection.clone(), lhs_), Op(selection, rhs_))
             }
         }
     }
 }
-

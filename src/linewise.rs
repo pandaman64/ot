@@ -150,22 +150,22 @@ impl super::Operation for Operation {
                     head_first = None;
                     head_second = second.next();
                     ret.add(value);
-                },
+                }
                 (Some(value), None) => {
                     head_first = first.next();
                     head_second = None;
                     ret.add(value);
-                },
+                }
                 (Some(Delete(len)), s) => {
                     head_first = first.next();
                     head_second = s;
                     ret.delete(len);
-                },
+                }
                 (f, Some(Insert(s))) => {
                     head_first = f;
                     head_second = second.next();
                     ret.insert(s);
-                },
+                }
                 (Some(Retain(len_first)), Some(Retain(len_second))) => {
                     if len_first < len_second {
                         head_first = first.next();
@@ -180,7 +180,7 @@ impl super::Operation for Operation {
                         head_second = second.next();
                         ret.retain(len_second);
                     }
-                },
+                }
                 (Some(Retain(len_first)), Some(Delete(len_second))) => {
                     if len_first < len_second {
                         head_first = first.next();
@@ -195,7 +195,7 @@ impl super::Operation for Operation {
                         head_second = second.next();
                         ret.delete(len_second);
                     }
-                },
+                }
                 (Some(Retain(len)), Some(Modify(op))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -216,7 +216,7 @@ impl super::Operation for Operation {
                         head_second = Some(Delete(len - 1));
                     }
                     head_first = first.next();
-                },
+                }
                 (Some(Insert(s)), Some(Retain(len))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -227,12 +227,12 @@ impl super::Operation for Operation {
                     }
                     head_first = first.next();
                     ret.insert(s);
-                },
+                }
                 (Some(Insert(s)), Some(Modify(op))) => {
                     head_first = first.next();
                     head_second = second.next();
                     ret.insert(op.apply(&s));
-                },
+                }
                 (Some(Modify(op)), Some(Retain(len))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -243,7 +243,7 @@ impl super::Operation for Operation {
                     }
                     head_first = first.next();
                     ret.modify(op);
-                },
+                }
                 (Some(Modify(_)), Some(Delete(len))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -254,7 +254,7 @@ impl super::Operation for Operation {
                     }
                     head_first = first.next();
                     ret.delete(1);
-                },
+                }
                 (Some(Modify(lhs)), Some(Modify(rhs))) => {
                     head_first = first.next();
                     head_second = second.next();
@@ -265,7 +265,11 @@ impl super::Operation for Operation {
     }
 
     fn transform(self, other: Operation) -> (Self, Self) {
-        assert_eq!(self.source_len, other.source_len, "the source of both operation must match. left = {:?}, right = {:?}", self, other);
+        assert_eq!(
+            self.source_len, other.source_len,
+            "the source of both operation must match. left = {:?}, right = {:?}",
+            self, other
+        );
 
         let mut ret_left = Operation::new();
         let mut ret_right = Operation::new();
@@ -286,13 +290,13 @@ impl super::Operation for Operation {
                     ret_left.insert(s);
                     head_left = left.next();
                     head_right = value;
-                },
+                }
                 (value, Some(Insert(s))) => {
                     ret_left.retain(1);
                     ret_right.insert(s);
                     head_left = value;
                     head_right = right.next();
-                },
+                }
                 (None, _) => unreachable!("left is too short"),
                 (_, None) => unreachable!("right is too short"),
                 (Some(Retain(left_len)), Some(Retain(right_len))) => {
@@ -312,7 +316,7 @@ impl super::Operation for Operation {
                     }
                     ret_left.retain(len);
                     ret_right.retain(len);
-                },
+                }
                 (Some(Delete(left_len)), Some(Delete(right_len))) => {
                     if left_len < right_len {
                         head_left = left.next();
@@ -324,14 +328,14 @@ impl super::Operation for Operation {
                         head_left = Some(Delete(left_len - right_len));
                         head_right = right.next();
                     }
-                },
+                }
                 (Some(Modify(left_op)), Some(Modify(right_op))) => {
                     head_left = left.next();
                     head_right = right.next();
                     let (left_op, right_op) = left_op.transform(right_op);
                     ret_left.modify(left_op);
                     ret_right.modify(right_op);
-                },
+                }
                 (Some(Retain(left_len)), Some(Delete(right_len))) => {
                     let len;
                     if left_len < right_len {
@@ -348,7 +352,7 @@ impl super::Operation for Operation {
                         head_right = right.next();
                     }
                     ret_right.delete(len);
-                },
+                }
                 (Some(Delete(left_len)), Some(Retain(right_len))) => {
                     let len;
                     if left_len < right_len {
@@ -365,7 +369,7 @@ impl super::Operation for Operation {
                         head_right = right.next();
                     }
                     ret_left.delete(len);
-                },
+                }
                 (Some(Modify(op)), Some(Retain(len))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -377,7 +381,7 @@ impl super::Operation for Operation {
                     head_left = left.next();
                     ret_left.modify(op);
                     ret_right.retain(1);
-                },
+                }
                 (Some(Retain(len)), Some(Modify(op))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -389,7 +393,7 @@ impl super::Operation for Operation {
                     head_right = right.next();
                     ret_left.retain(1);
                     ret_right.modify(op);
-                },
+                }
                 (Some(Modify(_)), Some(Delete(len))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -400,7 +404,7 @@ impl super::Operation for Operation {
                     }
                     head_left = left.next();
                     ret_right.delete(1);
-                },
+                }
                 (Some(Delete(len)), Some(Modify(_))) => {
                     if len == 0 {
                         unreachable!("length cannot be zero");
@@ -408,12 +412,11 @@ impl super::Operation for Operation {
                         head_left = left.next();
                     } else {
                         head_left = Some(Delete(len - 1));
-                    } 
+                    }
                     head_right = right.next();
                     ret_left.delete(1);
-                },
+                }
             }
         }
     }
 }
-

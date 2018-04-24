@@ -10,7 +10,7 @@ pub enum Selection {
 }
 
 impl Selection {
-    pub(crate) fn transform_index(value: &mut usize, op: &BaseOperation)  {
+    pub(crate) fn transform_index(value: &mut usize, op: &BaseOperation) {
         use charwise::PrimitiveOperation::*;
 
         let mut idx = 0;
@@ -18,13 +18,13 @@ impl Selection {
             match *op {
                 Retain(len) => {
                     idx += len;
-                },
+                }
                 Insert(ref s) => {
                     if idx <= *value {
                         *value += s.len();
                     }
                     idx += s.len();
-                },
+                }
                 Delete(len) => {
                     if idx <= *value {
                         *value -= len.min(*value - idx);
@@ -65,7 +65,7 @@ pub enum Operation {
     Nop,
     Select(Vec<Selection>),
     Operate(BaseOperation),
-    Both(Vec<Selection>,BaseOperation),
+    Both(Vec<Selection>, BaseOperation),
 }
 
 impl Default for Operation {
@@ -88,22 +88,21 @@ impl OperationTrait for Operation {
             },
             Operate(ref op) => {
                 let base = op.apply(&target.base);
-                let selection = target.selection.iter().cloned().filter_map(|s| s.transform(op)).collect();
+                let selection = target
+                    .selection
+                    .iter()
+                    .cloned()
+                    .filter_map(|s| s.transform(op))
+                    .collect();
 
-                Target {
-                    base,
-                    selection,
-                }
-            },
+                Target { base, selection }
+            }
             Both(ref s, ref op) => {
                 let base = op.apply(&target.base);
                 let selection = s.clone();
 
-                Target {
-                    base,
-                    selection,
-                }
-            },
+                Target { base, selection }
+            }
         }
     }
 
@@ -117,16 +116,18 @@ impl OperationTrait for Operation {
             (Select(s), Operate(o)) => {
                 let selection = s.into_iter().filter_map(|s| s.transform(&o)).collect();
                 Both(selection, o)
-            },
-            (Select(_), Both(s, o)) | (Operate(o), Select(s)) | (Both(_, o), Select(s)) => Both(s, o),
+            }
+            (Select(_), Both(s, o)) | (Operate(o), Select(s)) | (Both(_, o), Select(s)) => {
+                Both(s, o)
+            }
             (Operate(lhs), Operate(rhs)) => Operate(lhs.compose(rhs)),
             (Operate(lhs), Both(s, rhs)) | (Both(_, lhs), Both(s, rhs)) => {
                 Both(s, lhs.compose(rhs))
-            },
+            }
             (Both(s, lhs), Operate(rhs)) => {
                 let s = s.into_iter().filter_map(|s| s.transform(&rhs)).collect();
                 Both(s, lhs.compose(rhs))
-            },
+            }
         }
     }
 
@@ -141,11 +142,11 @@ impl OperationTrait for Operation {
             (Select(s), Operate(o)) | (Select(s), Both(_, o)) => {
                 let selection = s.into_iter().filter_map(|s| s.transform(&o)).collect();
                 (Select(selection), Operate(o))
-            },
+            }
             (Operate(o), Select(s)) => {
                 let selection = s.into_iter().filter_map(|s| s.transform(&o)).collect();
                 (Operate(o), Select(selection))
-            },
+            }
             (Operate(lhs), Operate(rhs)) => {
                 let (lhs_, rhs_) = lhs.transform(rhs);
                 (Operate(lhs_), Operate(rhs_))
@@ -154,14 +155,15 @@ impl OperationTrait for Operation {
                 let (lhs_, rhs_) = lhs.transform(rhs);
                 let selection = s.into_iter().filter_map(|s| s.transform(&lhs_)).collect();
                 (Operate(lhs_), Both(selection, rhs_))
-            },
+            }
             (Both(s, o), Select(_)) => (Both(s, o), Nop),
             (Both(s, lhs), Operate(rhs)) | (Both(s, lhs), Both(_, rhs)) => {
                 let (lhs_, rhs_) = lhs.transform(rhs);
-                let selection = s.into_iter().filter_map(|s| s.transform(&rhs_)).collect::<Vec<_>>();
+                let selection = s.into_iter()
+                    .filter_map(|s| s.transform(&rhs_))
+                    .collect::<Vec<_>>();
                 (Both(selection.clone(), lhs_), Both(selection, rhs_))
-            },
+            }
         }
     }
 }
-
