@@ -86,7 +86,7 @@ pub enum Client<O: Operation, C: Connection<O>> {
     Error(String),
 }
 
-impl<'c, O:Operation + 'static, C: Connection<O> + 'c> Client<O, C> {
+impl<'c, O: Operation + 'static, C: Connection<O> + 'c> Client<O, C> {
     pub fn with_connection(connection: C) -> Box<Future<Item = Self, Error = C::Error> + 'c> {
         Box::new(
             connection
