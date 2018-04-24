@@ -2,6 +2,7 @@ use super::Operation;
 
 pub mod server;
 pub mod client;
+pub mod mock_connection;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize, Debug)]
 pub struct Id(pub usize);

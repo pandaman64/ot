@@ -5,6 +5,18 @@ pub trait Connection<O: Operation> {
     fn send_state(&mut self, state: &State<O>);
 }
 
+impl<O: Operation, C: Connection<O>> Connection<O> for Box<C> {
+    fn send_state(&mut self, state: &State<O>) {
+        (**self).send_state(state)
+    }
+}
+
+impl<'c, O: Operation, C: Connection<O> + ?Sized + 'c> Connection<O> for &'c mut C {
+    fn send_state(&mut self, state: &State<O>) {
+        (**self).send_state(state)
+    }
+}
+
 pub struct Server<O: Operation> {
     history: Vec<State<O>>,
     //connections: Vec<Box<Connection>>,

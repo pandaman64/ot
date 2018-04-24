@@ -7,6 +7,8 @@ extern crate serde;
 #[macro_use]
 extern crate failure;
 
+extern crate futures;
+
 pub mod cs;
 pub use cs::server;
 pub use cs::client;

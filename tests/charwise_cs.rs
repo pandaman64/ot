@@ -2,15 +2,12 @@ extern crate ot;
 
 use ot::charwise::*;
 use ot::cs::*;
-use ot::server;
 use ot::server::*;
-use ot::client;
 use ot::client::*;
 
 use std::rc::Rc;
 use std::cell::RefCell;
 
-#[macro_use]
 extern crate failure;
 
 extern crate futures;
@@ -18,56 +15,13 @@ use futures::Future;
 
 #[test]
 fn test_client_server() {
-    struct MockConnection(Rc<RefCell<Server<Operation>>>);
-
-    impl<'a> server::Connection<Operation> for &'a MockConnection {
-        fn send_state(&mut self, _state: &State<Operation>) {}
-    }
-
-    #[derive(Debug, Fail)]
-    #[fail(display = "error: {}", _0)]
-    struct MockConnectionError(String);
-
-    impl From<String> for MockConnectionError {
-        fn from(s: String) -> Self {
-            MockConnectionError(s)
-        }
-    }
-
-    impl client::Connection<Operation> for MockConnection {
-        type Error = MockConnectionError;
-        type Output = Box<Future<Item = (Id, Operation), Error = Self::Error>>;
-        type StateFuture = Box<Future<Item = State<Operation>, Error = Self::Error>>;
-
-        fn get_latest_state(&self) -> Self::StateFuture {
-            use futures::future::ok;
-
-            let server = self.0.borrow();
-            Box::new(ok((*server.current_state()).clone()))
-        }
-
-        fn get_patch_since(&self, since_id: &Id) -> Self::Output {
-            use futures::future::result;
-
-            let server = self.0.borrow();
-            Box::new(result(server.get_patch(since_id).map_err(Into::into)))
-        }
-
-        fn send_operation(&self, parent: Id, op: Operation) -> Self::Output {
-            use futures::future::result;
-
-            let mut server = self.0.borrow_mut();
-            Box::new(result(server.modify(parent, op).map_err(Into::into)))
-        }
-    }
-
     let server = Rc::new(RefCell::new(Server::new()));
 
-    let connection1 = MockConnection(server.clone());
-    let connection2 = MockConnection(server.clone());
+    let mut connection1 = mock_connection::MockConnection::new(server.clone());
+    let mut connection2 = mock_connection::MockConnection::new(server.clone());
 
-    server.borrow_mut().connect(Box::new(&connection1));
-    server.borrow_mut().connect(Box::new(&connection2));
+    server.borrow_mut().connect(Box::new(&mut connection1));
+    server.borrow_mut().connect(Box::new(&mut connection2));
 
     let mut client1 = Client::with_connection(&connection1).wait().unwrap();
     let mut client2 = Client::with_connection(&connection2).wait().unwrap();
