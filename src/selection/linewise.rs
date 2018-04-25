@@ -91,7 +91,12 @@ impl<UserId: Clone + Eq + Hash> Target<UserId> {
     pub fn operate(&self, op: BaseOperation) -> Operation<UserId> {
         let selection = self.selection
             .iter()
-            .map(|(id, s)| (id.clone(), s.iter().cloned().filter_map(|s| s.transform(&op)).collect()))
+            .map(|(id, s)| {
+                (
+                    id.clone(),
+                    s.iter().cloned().filter_map(|s| s.transform(&op)).collect(),
+                )
+            })
             .collect();
         Operation::Op(selection, op)
     }
@@ -158,8 +163,18 @@ impl<UserId: Clone + Eq + Hash> OperationTrait for Operation<UserId> {
             (Op(slhs, lhs), Op(srhs, rhs)) => {
                 let (lhs_, rhs_) = lhs.transform(rhs);
                 let selection: HashMap<UserId, Vec<Selection>> = {
-                    let slhs = slhs.into_iter().map(|(id, s)| (id, s.into_iter().filter_map(|s| s.transform(&rhs_)).collect()));
-                    let srhs = srhs.into_iter().map(|(id, s)| (id, s.into_iter().filter_map(|s| s.transform(&lhs_)).collect()));
+                    let slhs = slhs.into_iter().map(|(id, s)| {
+                        (
+                            id,
+                            s.into_iter().filter_map(|s| s.transform(&rhs_)).collect(),
+                        )
+                    });
+                    let srhs = srhs.into_iter().map(|(id, s)| {
+                        (
+                            id,
+                            s.into_iter().filter_map(|s| s.transform(&lhs_)).collect(),
+                        )
+                    });
                     srhs.chain(slhs).collect()
                 };
                 (Op(selection.clone(), lhs_), Op(selection, rhs_))
