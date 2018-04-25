@@ -8,7 +8,7 @@ pub fn random_lines<R: rand::Rng>(
     max_line_len: usize,
     line_num: usize,
 ) -> Vec<String> {
-    use rand::distributions::{Range, Sample};
+    use util::rand::distributions::{Range, Sample};
 
     let mut len = Range::new(0, max_line_len + 1);
     (0..line_num)
@@ -20,7 +20,7 @@ pub fn random_lines<R: rand::Rng>(
 }
 
 pub fn random_operation<R: rand::Rng>(rng: &mut R, original: &[String]) -> Operation {
-    use rand::distributions::{Range, Sample};
+    use util::rand::distributions::{Range, Sample};
 
     let mut op_type = Range::new(0, 4);
     let mut ret = Operation::new();

@@ -15,7 +15,7 @@ fn test_apply() {
 
     let target = Target {
         base: vec!["こんにちは".into(), "世界".into()],
-        selection: vec![
+        selection: to_selection(vec![
             Range(
                 Position {
                     row: 0,
@@ -30,7 +30,7 @@ fn test_apply() {
                 row: 1,
                 col: "世界".len(),
             }),
-        ],
+        ]),
     };
     let op = target.operate({
         let mut op = BaseOperation::new();
@@ -47,7 +47,7 @@ fn test_apply() {
         op.apply(&target),
         Target {
             base: vec!["こんにちは".into(), "!".into(), "社会".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Range(
                     Position {
                         row: 0,
@@ -62,7 +62,7 @@ fn test_apply() {
                     row: 2,
                     col: "社会".len(),
                 }),
-            ],
+            ]),
         }
     );
 }
@@ -74,7 +74,7 @@ fn test_compose() {
 
     let target = Target {
         base: vec!["こんにちは".into(), "世界".into()],
-        selection: vec![
+        selection: to_selection(vec![
             Range(
                 Position {
                     row: 0,
@@ -89,7 +89,7 @@ fn test_compose() {
                 row: 1,
                 col: "世界".len(),
             }),
-        ],
+        ]),
     };
     let first = target.operate({
         let mut op = BaseOperation::new();
@@ -116,7 +116,7 @@ fn test_compose() {
         second.apply(&first.apply(&target)),
         Target {
             base: vec!["さようなら".into(), "!".into(), "社会".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Range(
                     Position { row: 1, col: 0 },
                     Position {
@@ -128,14 +128,14 @@ fn test_compose() {
                     row: 2,
                     col: "社会".len(),
                 }),
-            ],
+            ]),
         }
     );
     assert_eq!(
         first.compose(second).apply(&target),
         Target {
             base: vec!["さようなら".into(), "!".into(), "社会".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Range(
                     Position { row: 1, col: 0 },
                     Position {
@@ -147,7 +147,7 @@ fn test_compose() {
                     row: 2,
                     col: "社会".len(),
                 }),
-            ],
+            ]),
         }
     );
 }
@@ -159,7 +159,7 @@ fn test_transform() {
 
     let target = Target {
         base: vec!["こんにちは".into(), "世界".into()],
-        selection: vec![
+        selection: to_selection(vec![
             Range(
                 Position {
                     row: 0,
@@ -174,7 +174,7 @@ fn test_transform() {
                 row: 0,
                 col: "こんにち".len(),
             }),
-        ],
+        ]),
     };
     let left = target.operate({
         let mut op = BaseOperation::new();
@@ -187,12 +187,12 @@ fn test_transform() {
         op
     });
     let right = Operation::Op(
-        vec![
+        to_selection(vec![
             Cursor(Position {
                 row: 0,
                 col: "こ".len(),
             }),
-        ],
+        ]),
         {
             let mut op = BaseOperation::new();
             op.delete(1).insert("さようなら".into()).retain(1);
@@ -209,7 +209,7 @@ fn test_transform() {
         composed_left.apply(&target),
         Target {
             base: vec!["!".into(), "さようなら".into(), "社会".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Range(
                     Position { row: 0, col: 0 },
                     Position {
@@ -218,14 +218,14 @@ fn test_transform() {
                     },
                 ),
                 Cursor(Position { row: 0, col: 0 }),
-            ],
+            ]),
         }
     );
     assert_eq!(
         composed_left.apply(&target),
         Target {
             base: vec!["!".into(), "さようなら".into(), "社会".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Range(
                     Position { row: 0, col: 0 },
                     Position {
@@ -234,7 +234,7 @@ fn test_transform() {
                     },
                 ),
                 Cursor(Position { row: 0, col: 0 }),
-            ],
+            ]),
         }
     );
 }

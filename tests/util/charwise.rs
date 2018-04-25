@@ -6,7 +6,7 @@ pub fn random_string<R: rand::Rng>(rng: &mut R, len: usize) -> String {
 }
 
 pub fn random_operation<R: rand::Rng>(rng: &mut R, original: &str) -> Operation {
-    use rand::distributions::{Range, Sample};
+    use util::rand::distributions::{Range, Sample};
 
     let mut op_type = Range::new(0, 3);
 

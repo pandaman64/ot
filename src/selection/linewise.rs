@@ -2,6 +2,8 @@ use super::super::Operation as OperationTrait;
 use super::super::linewise::Operation as BaseOperation;
 
 use std::default::Default;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Position {
@@ -71,31 +73,30 @@ impl Selection {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Target {
+pub struct Target<UserId: Clone + Eq + Hash> {
     pub base: <BaseOperation as OperationTrait>::Target,
-    pub selection: Vec<Selection>,
+    pub selection: HashMap<UserId, Vec<Selection>>,
 }
 
-impl Default for Target {
+impl<UserId: Clone + Eq + Hash> Default for Target<UserId> {
     fn default() -> Self {
         Target {
             base: <BaseOperation as OperationTrait>::Target::default(),
-            selection: vec![],
+            selection: HashMap::new(),
         }
     }
 }
 
-impl Target {
-    pub fn operate(&self, op: BaseOperation) -> Operation {
+impl<UserId: Clone + Eq + Hash> Target<UserId> {
+    pub fn operate(&self, op: BaseOperation) -> Operation<UserId> {
         let selection = self.selection
             .iter()
-            .cloned()
-            .filter_map(|s| s.transform(&op))
+            .map(|(id, s)| (id.clone(), s.iter().cloned().filter_map(|s| s.transform(&op)).collect()))
             .collect();
         Operation::Op(selection, op)
     }
 
-    pub fn select(&self, s: Vec<Selection>) -> Operation {
+    pub fn select(&self, s: HashMap<UserId, Vec<Selection>>) -> Operation<UserId> {
         Operation::Op(s, {
             let mut op = BaseOperation::new();
             op.retain(self.base.len());
@@ -105,25 +106,25 @@ impl Target {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum Operation {
+pub enum Operation<UserId: Clone + Eq + Hash> {
     Nop,
-    Op(Vec<Selection>, BaseOperation),
+    Op(HashMap<UserId, Vec<Selection>>, BaseOperation),
 }
 
-impl Default for Operation {
+impl<UserId: Clone + Eq + Hash> Default for Operation<UserId> {
     fn default() -> Self {
         Operation::Nop
     }
 }
 
-impl OperationTrait for Operation {
-    type Target = Target;
+impl<UserId: Clone + Eq + Hash> OperationTrait for Operation<UserId> {
+    type Target = Target<UserId>;
 
-    fn nop(_: &Target) -> Self {
+    fn nop(_: &Self::Target) -> Self {
         Operation::Nop
     }
 
-    fn apply(&self, target: &Target) -> Target {
+    fn apply(&self, target: &Self::Target) -> Self::Target {
         use self::Operation::*;
 
         match *self {
@@ -154,10 +155,13 @@ impl OperationTrait for Operation {
         match (self, other) {
             (Nop, other) => (Nop, other),
             (this, Nop) => (this, Nop),
-            (Op(s, lhs), Op(_, rhs)) => {
+            (Op(slhs, lhs), Op(srhs, rhs)) => {
                 let (lhs_, rhs_) = lhs.transform(rhs);
-                let selection: Vec<Selection> =
-                    s.into_iter().filter_map(|s| s.transform(&rhs_)).collect();
+                let selection: HashMap<UserId, Vec<Selection>> = {
+                    let slhs = slhs.into_iter().map(|(id, s)| (id, s.into_iter().filter_map(|s| s.transform(&rhs_)).collect()));
+                    let srhs = srhs.into_iter().map(|(id, s)| (id, s.into_iter().filter_map(|s| s.transform(&lhs_)).collect()));
+                    srhs.chain(slhs).collect()
+                };
                 (Op(selection.clone(), lhs_), Op(selection, rhs_))
             }
         }

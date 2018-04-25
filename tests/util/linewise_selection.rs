@@ -1,9 +1,11 @@
 use ot::selection::linewise::*;
 use super::rand;
+use util::rand::distributions::{Range, Sample};
 
 pub use super::linewise::random_lines;
 
-use rand::distributions::{Range, Sample};
+use std::collections::HashMap;
+
 fn random_selection<R: rand::Rng>(
     rng: &mut R,
     num_selection: usize,
@@ -46,9 +48,9 @@ pub fn random_target<R: rand::Rng>(
     num_selection: usize,
     max_line_len: usize,
     len: usize,
-) -> Target {
+) -> Target<()> {
     let base = random_lines(rng, max_line_len, len);
-    let selection = random_selection(rng, num_selection, &base);
+    let selection = to_selection(random_selection(rng, num_selection, &base));
 
     Target { base, selection }
 }
@@ -56,8 +58,8 @@ pub fn random_target<R: rand::Rng>(
 pub fn random_operation<R: rand::Rng>(
     rng: &mut R,
     num_selection: usize,
-    target: &Target,
-) -> Operation {
+    target: &Target<()>,
+) -> Operation<()> {
     use self::Operation::*;
     use ot::Operation;
 
@@ -66,8 +68,14 @@ pub fn random_operation<R: rand::Rng>(
         _ => {
             let op = super::linewise::random_operation(rng, &target.base);
             let applied_base = op.apply(&target.base);
-            let selection = random_selection(rng, num_selection, &applied_base);
+            let selection = to_selection(random_selection(rng, num_selection, &applied_base));
             Op(selection, op)
         }
     }
+}
+
+pub fn to_selection(v: Vec<Selection>) -> HashMap<(), Vec<Selection>> {
+    let mut ret = HashMap::new();
+    ret.insert((), v);
+    ret
 }

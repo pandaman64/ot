@@ -14,6 +14,9 @@ extern crate failure;
 extern crate futures;
 use futures::Future;
 
+mod util;
+use util::linewise_selection::to_selection;
+
 #[test]
 fn test_linewise_selection_client_server() {
     use Selection::*;
@@ -34,7 +37,7 @@ fn test_linewise_selection_client_server() {
     assert_eq!(client2.current_content().unwrap(), Default::default());
 
     client1.push_operation(Operation::Op(
-        vec![
+        to_selection(vec![
             Cursor(Position {
                 row: 0,
                 col: "こんに".len(),
@@ -49,7 +52,7 @@ fn test_linewise_selection_client_server() {
                     col: "世界".len(),
                 },
             ),
-        ],
+        ]),
         {
             let mut op = BaseOperation::new();
             op.insert("こんにちは".into()).insert("世界".into());
@@ -65,7 +68,7 @@ fn test_linewise_selection_client_server() {
         client1.current_content().unwrap(),
         Target {
             base: vec!["こんにちは".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position {
                     row: 0,
                     col: "こんに".len(),
@@ -80,18 +83,18 @@ fn test_linewise_selection_client_server() {
                         col: "世界".len(),
                     },
                 ),
-            ],
+            ]),
         }
     );
     assert_eq!(client2.current_content().unwrap(), Default::default());
 
     client2.push_operation(Operation::Op(
-        vec![
+        to_selection(vec![
             Cursor(Position {
                 row: 0,
                 col: "!".len(),
             }),
-        ],
+        ]),
         {
             let mut op = BaseOperation::new();
             op.insert("!".into());
@@ -107,7 +110,7 @@ fn test_linewise_selection_client_server() {
         client1.current_content().unwrap(),
         Target {
             base: vec!["こんにちは".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position {
                     row: 0,
                     col: "こんに".len(),
@@ -122,19 +125,19 @@ fn test_linewise_selection_client_server() {
                         col: "世界".len(),
                     },
                 ),
-            ],
+            ]),
         }
     );
     assert_eq!(
         client2.current_content().unwrap(),
         Target {
             base: vec!["!".into(), "こんにちは".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position {
                     row: 0,
                     col: "!".len(),
                 }),
-            ],
+            ]),
         }
     );
 
@@ -155,7 +158,7 @@ fn test_linewise_selection_client_server() {
         client1.current_content().unwrap(),
         Target {
             base: vec!["!".into(), "さようなら".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position { row: 2, col: 0 }),
                 Range(
                     Position { row: 2, col: 0 },
@@ -164,19 +167,19 @@ fn test_linewise_selection_client_server() {
                         col: "世界".len(),
                     },
                 ),
-            ],
+            ]),
         }
     );
     assert_eq!(
         client2.current_content().unwrap(),
         Target {
             base: vec!["!".into(), "こんにちは".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position {
                     row: 0,
                     col: "!".len(),
                 }),
-            ],
+            ]),
         }
     );
 
@@ -189,7 +192,7 @@ fn test_linewise_selection_client_server() {
         client1.current_content().unwrap(),
         Target {
             base: vec!["!".into(), "さようなら".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position { row: 2, col: 0 }),
                 Range(
                     Position { row: 2, col: 0 },
@@ -198,14 +201,14 @@ fn test_linewise_selection_client_server() {
                         col: "世界".len(),
                     },
                 ),
-            ],
+            ]),
         }
     );
     assert_eq!(
         client2.current_content().unwrap(),
         Target {
             base: vec!["!".into(), "さようなら".into(), "世界".into()],
-            selection: vec![
+            selection: to_selection(vec![
                 Cursor(Position { row: 2, col: 0 }),
                 Range(
                     Position { row: 2, col: 0 },
@@ -214,7 +217,7 @@ fn test_linewise_selection_client_server() {
                         col: "世界".len(),
                     },
                 ),
-            ],
+            ]),
         }
     );
 }
