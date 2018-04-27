@@ -8,6 +8,7 @@ use failure::{Error, Fail};
 
 extern crate futures;
 use self::futures::Future;
+use self::futures::FutureExt;
 
 pub trait Connection<O: Operation> {
     type Error: Fail;

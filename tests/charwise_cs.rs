@@ -11,7 +11,7 @@ use std::cell::RefCell;
 extern crate failure;
 
 extern crate futures;
-use futures::Future;
+use futures::executor::block_on;
 
 #[test]
 fn test_charwise_client_server() {
@@ -23,8 +23,8 @@ fn test_charwise_client_server() {
     server.borrow_mut().connect(Box::new(&mut connection1));
     server.borrow_mut().connect(Box::new(&mut connection2));
 
-    let mut client1 = Client::with_connection(&connection1).wait().unwrap();
-    let mut client2 = Client::with_connection(&connection2).wait().unwrap();
+    let mut client1 = block_on(Client::with_connection(&connection1)).unwrap();
+    let mut client2 = block_on(Client::with_connection(&connection2)).unwrap();
 
     assert_eq!(client1.current_content().unwrap(), "");
     assert_eq!(client2.current_content().unwrap(), "");
@@ -35,7 +35,7 @@ fn test_charwise_client_server() {
         op
     });
     {
-        let (id, op) = client1.send_to_server().unwrap().wait().unwrap();
+        let (id, op) = block_on(client1.send_to_server().unwrap()).unwrap();
         client1.apply_patch(id, op).unwrap();
     }
 
@@ -48,7 +48,7 @@ fn test_charwise_client_server() {
         op
     });
     {
-        let (id, op) = client2.send_to_server().unwrap().wait().unwrap();
+        let (id, op) = block_on(client2.send_to_server().unwrap()).unwrap();
         client2.apply_patch(id, op).unwrap();
     }
 
@@ -66,7 +66,7 @@ fn test_charwise_client_server() {
         op
     });
     {
-        let (id, op) = client1.send_to_server().unwrap().wait().unwrap();
+        let (id, op) = block_on(client1.send_to_server().unwrap()).unwrap();
         client1.apply_patch(id, op).unwrap();
     }
 
@@ -80,7 +80,7 @@ fn test_charwise_client_server() {
     );
 
     {
-        let (latest_id, diff) = client2.send_get_patch().wait().unwrap();
+        let (latest_id, diff) = block_on(client2.send_get_patch()).unwrap();
         client2.apply_patch(latest_id, diff).unwrap();
     }
 
