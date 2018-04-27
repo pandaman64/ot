@@ -116,6 +116,12 @@ pub enum Operation<UserId: Clone + Eq + Hash> {
     Op(HashMap<UserId, Vec<Selection>>, BaseOperation),
 }
 
+impl<UserId: Clone + Eq + Hash> Operation<UserId> {
+    pub fn with_content(op: BaseOperation) -> Self {
+        Operation::Op(HashMap::new(), op)
+    }
+}
+
 impl<UserId: Clone + Eq + Hash> Default for Operation<UserId> {
     fn default() -> Self {
         Operation::Nop
