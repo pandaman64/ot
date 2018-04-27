@@ -1,6 +1,8 @@
 use super::*;
 use super::super::Operation;
 
+use serde::{Deserialize, Serialize};
+
 pub trait Connection<O: Operation> {
     fn send_state(&mut self, state: &State<O>);
 }
@@ -17,7 +19,10 @@ impl<'c, O: Operation, C: Connection<O> + ?Sized + 'c> Connection<O> for &'c mut
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Server<O: Operation> {
+    #[serde(bound(serialize = "O: Serialize, O::Target: Serialize",
+                  deserialize = "O: Deserialize<'de>, O::Target: Deserialize<'de>"))]
     history: Vec<State<O>>,
     //connections: Vec<Box<Connection>>,
 }
