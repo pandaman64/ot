@@ -120,6 +120,23 @@ impl<UserId: Clone + Eq + Hash> Operation<UserId> {
     pub fn with_content(op: BaseOperation) -> Self {
         Operation::Op(HashMap::new(), op)
     }
+
+    pub fn operate(&self, op: BaseOperation) -> Self {
+        use self::Operation::*;
+
+        match *self {
+            Nop => Op(HashMap::new(), op),
+            Op(ref s, _) => {
+                let s = s.iter()
+                    .map(|(ref k, ref v)| {
+                        let v = v.iter().cloned().filter_map(|s| s.transform(&op)).collect();
+                        ((*k).clone(), v)
+                    })
+                    .collect();
+                Op(s, op)
+            }
+        }
+    }
 }
 
 impl<UserId: Clone + Eq + Hash> Default for Operation<UserId> {

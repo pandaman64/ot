@@ -113,6 +113,29 @@ impl<'c, O: Operation + 'static, C: Connection<O> + 'c> Client<O, C> {
         }
     }
 
+    pub fn unsynced_content(&self) -> Result<O::Target, String> {
+        use self::Client::*;
+        match *self {
+            WaitingForResponse {
+                ref base_state,
+                ref current_diff,
+                ..
+            }
+            | Buffering {
+                ref base_state,
+                ref current_diff,
+                ..
+            } => {
+                if let Some(ref current) = *current_diff {
+                    Ok(current.apply(&base_state.content))
+                } else {
+                    Ok(base_state.content.clone())
+                }
+            }
+            Error(ref s) => Err(s.clone()),
+        }
+    }
+
     pub fn push_operation(&mut self, operation: O) {
         use self::Client::*;
         match *self {
